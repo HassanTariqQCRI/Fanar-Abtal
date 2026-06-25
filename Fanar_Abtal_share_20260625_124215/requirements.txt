@@ -1,0 +1,9 @@
+streamlit>=1.39
+requests
+python-dotenv
+fpdf
+pandas
+pillow
+pytesseract
+reportlab
+python-docx

@@ -1,0 +1,22 @@
+.env
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local/generated demo outputs
+generated_audio/
+generated_docx/
+generated_images/
+generated_pdf/
+generated_stories/
+tts_output.mp3
+
+# Local Codex/session files
+.agents/
+.codex-remote-attachments/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/

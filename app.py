@@ -76,11 +76,21 @@ SKILL BADGE: [one short badge name for the skill practised]
 PARENT NOTE: [one concise note for the parent explaining how to support the child without pressure]
 """
 
-PARENT_STORYBOOK_PROMPT = """You are FANAR ABTAL, an Arabic-friendly, culturally respectful storybook companion for parents and children.
-Create a warm, original, age-appropriate personalised storybook. The child is capable and safe. Do not use frightening, violent, romantic, or adult themes. Do not imitate copyrighted characters or living authors. Never invent Quranic verses, duas, hadith, or historical facts. If the parent selects a value, weave it naturally into the story rather than preaching.
+PARENT_STORYBOOK_PROMPT = """أنت فنار أبطال: رفيق قصصي للأسرة في قطر والخليج، يفهم معنى التعليم والتربية في الثقافة العربية والإسلامية.
+Create a warm, original, age-appropriate personalised storybook for the child and parent. Use the selected language, but think carefully about the Arabic tarbiyah concepts provided by the parent.
+
+Culture and safety rules:
+- Root the story in gentle Islamic manners, Arabic adab, family respect, mercy, honesty, responsibility, gratitude, cleanliness, good friendship, and community service.
+- Do not preach, shame, frighten, or make the child feel guilty. Show the value through a small action in the story.
+- Never invent Quranic verses, duas, hadith, fatwas, or historical facts. If religious language is used, keep it general and respectful.
+- Boys and girls share the same core values: adab, amanah, rahmah, haya, respect, courage, learning, service, and responsibility.
+- If gender is provided, adjust examples gently for the child’s social context, confidence, modesty, and family life, without limiting dreams or using stereotypes.
+- Respect Gulf/Qatari family context while remaining inclusive for Arabic and non-Arabic families.
+- Do not use frightening, violent, romantic, or adult themes. Do not imitate copyrighted characters or living authors.
 
 Return exactly this structure:
 TITLE: [short title]
+TARBIYAH FOCUS: [one sentence connecting the story to ta'leem and tarbiyah]
 MORAL: [one friendly sentence]
 SCENE 1: [short story paragraph]
 IMAGE 1: [an English, child-safe illustration prompt with no words or logos]
@@ -92,6 +102,7 @@ SCENE 4: [short warm ending]
 IMAGE 4: [an English, child-safe illustration prompt with no words or logos]
 TALK TOGETHER: [one thoughtful parent-child question]
 HOME ACTIVITY: [one safe, simple activity that takes under 15 minutes]
+PARENT TARBIYAH NOTE: [one concise note helping the parent continue the value gently at home]
 """
 
 LEARNING_PROMPT = """You are FANAR ABTAL, a bilingual AI learning companion for children and parents in Qatar.
@@ -429,6 +440,68 @@ def child_story_profile(child_age):
     }
 
 
+def parent_tarbiyah_profile(child_age):
+    """Choose parent-facing tarbiyah guidance based on broad age bands."""
+    if child_age <= 7:
+        return {
+            "label": "Early adab foundations | ages 5-7",
+            "focus": "Gentle stories about salam, kindness, listening, sharing, cleanliness, and love for family.",
+            "why": "Young children learn best through simple examples, repetition, warm family scenes, and clear choices.",
+            "themes": [
+                "Adab in speech and salam | الأدب والسلام",
+                "Kindness and mercy | الرحمة واللطف",
+                "Respect for parents | بر الوالدين",
+                "Cleanliness and order | النظافة والنظام",
+                "Sharing and helping | المشاركة والمساعدة",
+            ],
+            "goals": ["Say kind words", "Listen the first time", "Help at home", "Tell the truth", "Share gently"],
+        }
+    if child_age <= 10:
+        return {
+            "label": "Growing responsibility | ages 8-10",
+            "focus": "Stories about amanah, honesty, prayer readiness, gratitude, teamwork, and respecting elders.",
+            "why": "Children at this age enjoy missions, fairness, rules, badges, teamwork, and seeing how good choices help others.",
+            "themes": [
+                "Amanah and responsibility | الأمانة والمسؤولية",
+                "Honesty and truth | الصدق",
+                "Prayer readiness and routine | الاستعداد للصلاة",
+                "Gratitude and contentment | الشكر والقناعة",
+                "Helping family and neighbours | خدمة الأسرة والجيران",
+                "Good friends and choices | الصحبة الصالحة",
+            ],
+            "goals": ["Keep a promise", "Try again with patience", "Help a younger child", "Show gratitude", "Make a fair choice"],
+        }
+    if child_age <= 13:
+        return {
+            "label": "Identity and self-control | ages 11-13",
+            "focus": "Stories about haya, digital adab, good companions, prayer consistency, responsibility, and confidence.",
+            "why": "Pre-teens care about belonging, independence, fairness, peer respect, and being guided without feeling controlled.",
+            "themes": [
+                "Haya and respectful confidence | الحياء والثقة المحترمة",
+                "Digital adab and self-control | أدب التقنية وضبط النفس",
+                "Good companions | الصحبة الصالحة",
+                "Prayer consistency | المحافظة على الصلاة",
+                "Family responsibility | المسؤولية داخل الأسرة",
+                "Courage with manners | الشجاعة مع الأدب",
+            ],
+            "goals": ["Choose good friends", "Pause before reacting", "Use technology wisely", "Be responsible without reminders", "Speak respectfully"],
+        }
+    return {
+        "label": "Purpose and mature responsibility | ages 14-17",
+        "focus": "Stories about niyyah, purpose, service, leadership, family trust, time discipline, and ethical choices.",
+        "why": "Teenagers need relevance, respect, autonomy, purpose, and practical links between values and real life.",
+        "themes": [
+            "Purpose and niyyah | النية والهدف",
+            "Leadership through service | القيادة بالخدمة",
+            "Amanah and family trust | الأمانة وثقة الأسرة",
+            "Time, prayer, and discipline | الوقت والصلاة والانضباط",
+            "Ethical choices | الاختيارات الأخلاقية",
+            "Balanced independence | الاستقلال المتوازن",
+        ],
+        "goals": ["Lead by serving", "Plan time wisely", "Make an ethical choice", "Support family trust", "Connect learning to purpose"],
+    }
+
+
 def make_word_storybook(child_name, story):
     """Create a simple printable storybook parents can keep or share at home."""
     document = Document()
@@ -441,7 +514,7 @@ def make_word_storybook(child_name, story):
             continue
         if clean.startswith("TITLE:"):
             document.add_heading(clean.replace("TITLE:", "").strip(), level=1)
-        elif clean.split(":", 1)[0] in {"MORAL", "SCENE 1", "SCENE 2", "SCENE 3", "SCENE 4", "TALK TOGETHER", "HOME ACTIVITY"}:
+        elif clean.split(":", 1)[0] in {"TARBIYAH FOCUS", "MORAL", "SCENE 1", "SCENE 2", "SCENE 3", "SCENE 4", "TALK TOGETHER", "HOME ACTIVITY", "PARENT TARBIYAH NOTE"}:
             label, text = clean.split(":", 1)
             document.add_heading(label.title(), level=2)
             document.add_paragraph(text.strip())
@@ -713,8 +786,9 @@ for key, value in {
     "camp": "AI & Data Skills", "interests": "Robots, football, drawing",
     "confidence": "A little nervous", "goal": "Understand how AI learns",
     "completed": 2, "streak": 3,
-    "parent_country": "Qatar", "parent_values": ["Kindness | الرحمة"],
-    "parent_theme": "A brave new beginning", "parent_notes": "My child likes football, animals, and colourful stories.",
+    "parent_country": "Qatar", "learner_gender": "Prefer not to specify",
+    "parent_values": ["Kindness and mercy | الرحمة واللطف"],
+    "parent_theme": "Kindness and mercy | الرحمة واللطف", "parent_notes": "My child likes football, animals, and colourful stories.",
 }.items():
     st.session_state.setdefault(key, value)
 
@@ -752,8 +826,28 @@ with st.sidebar:
                 st.success("I heard you. Your notes are ready below.")
             else:
                 st.info("Voice transcription is not available right now. You can write the details in the studio.")
-        st.selectbox("Child’s country", ["Qatar", "Egypt", "Pakistan", "United Arab Emirates", "Other"], key="parent_country")
-        st.multiselect("Values to explore", ["Kindness | الرحمة", "Honesty | الصدق", "Patience | الصبر", "Gratitude | الشكر", "Helping others | مساعدة الآخرين", "Respect for parents | بر الوالدين"], key="parent_values")
+        st.selectbox("Child’s country", ["Qatar", "Saudi Arabia", "United Arab Emirates", "Kuwait", "Bahrain", "Oman", "Egypt", "Pakistan", "Other"], key="parent_country")
+        st.selectbox("Child’s gender", ["Prefer not to specify", "Girl", "Boy"], key="learner_gender")
+        parent_value_options = [
+            "Kindness and mercy | الرحمة واللطف",
+            "Adab in speech | الأدب وحسن الكلام",
+            "Honesty | الصدق",
+            "Amanah and responsibility | الأمانة والمسؤولية",
+            "Patience | الصبر",
+            "Gratitude | الشكر",
+            "Respect for parents | بر الوالدين",
+            "Helping family | خدمة الأسرة",
+            "Haya and modesty | الحياء والوقار",
+            "Good companions | الصحبة الصالحة",
+            "Cleanliness and order | النظافة والنظام",
+            "Digital adab | أدب التقنية",
+        ]
+        st.session_state.parent_values = [v for v in st.session_state.parent_values if v in parent_value_options] or [parent_value_options[0]]
+        st.multiselect(
+            "Tarbiyah values to explore",
+            parent_value_options,
+            key="parent_values",
+        )
 
 name, age, language = st.session_state.learner_name, st.session_state.learner_age, st.session_state.language
 
@@ -780,26 +874,45 @@ if page == "Road to Abtal":
         st.info(f"Choose **{st.session_state['go_to']}** from the left menu to continue.")
 
 elif page == "Parent Story Studio":
-    st.markdown("""<div class='card'><h1>🌟 Fanar Abtal</h1><p style='font-size:24px;color:#6d3de7;margin:0'>فنار أبطال</p><h2>AI Storybook Companion for Parents & Children</h2><div class='mission' style='background:#e8fbfc;border-left-color:#4db7c5'><b>Powered by Fanar:</b> personalised story • image-ready scenes • voice-ready narration • family conversation</div></div>""", unsafe_allow_html=True)
+    tarbiyah_profile = parent_tarbiyah_profile(age)
+    if st.session_state.get("parent_theme") not in tarbiyah_profile["themes"]:
+        st.session_state.parent_theme = tarbiyah_profile["themes"][0]
+    st.markdown("""<div class='card'><h1>🌟 Fanar Tarbiyah Story Studio</h1><p style='font-size:24px;color:#6d3de7;margin:0'>استوديو القصص التربوية</p><h2>Arabic and Islamic values through warm family stories</h2><div class='mission' style='background:#e8fbfc;border-left-color:#4db7c5'><b>Powered by Fanar:</b> tarbiyah-aware story • age guidance • image-ready scenes • voice narration • printable Word book</div></div>""", unsafe_allow_html=True)
     st.write("")
     feature_1, feature_2, feature_3, feature_4 = st.columns(4)
-    feature_1.markdown("<div class='card'><h3>📖 Fanar Story</h3><p>Personalised storybook for your child.</p></div>", unsafe_allow_html=True)
-    feature_2.markdown("<div class='card'><h3>🎨 Scene Ideas</h3><p>Illustration prompts for each scene.</p></div>", unsafe_allow_html=True)
-    feature_3.markdown("<div class='card'><h3>🎧 Fanar Voice</h3><p>Ready for warm narrated audio.</p></div>", unsafe_allow_html=True)
+    feature_1.markdown("<div class='card'><h3>📖 Tarbiyah Story</h3><p>Personalised storybook with adab and family values.</p></div>", unsafe_allow_html=True)
+    feature_2.markdown("<div class='card'><h3>🕌 Gulf Context</h3><p>Qatar/Gulf-aware examples for Arabic and non-Arabic families.</p></div>", unsafe_allow_html=True)
+    feature_3.markdown("<div class='card'><h3>🎧 Fanar Voice</h3><p>Ready for warm Arabic or English narration.</p></div>", unsafe_allow_html=True)
     feature_4.markdown("<div class='card'><h3>📘 Word Book</h3><p>Download a printable family storybook.</p></div>", unsafe_allow_html=True)
-    st.info("Parent flow: child profile → story preferences → Fanar storybook → scenes and family guide.")
+    st.info("Parent flow: child profile → tarbiyah focus → Fanar storybook → scenes, voice, Word book, and family guide.")
+    st.markdown(
+        f"""<div class='mission'><b>{tarbiyah_profile['label']}</b><br>{tarbiyah_profile['focus']}<br><span class='tiny'>{tarbiyah_profile['why']}</span></div>""",
+        unsafe_allow_html=True,
+    )
+    st.caption("Important: boys and girls share the same core values. Gender only helps Fanar choose respectful examples and tone; it should not limit the child’s dreams.")
     left, right = st.columns(2)
     with left:
-        theme = st.selectbox("What should the story help with?", ["Kindness and friendship", "Confidence and trying again", "Curiosity and learning", "A family moment", "A custom theme"], key="parent_theme")
+        theme = st.selectbox("What tarbiyah focus should the story support?", tarbiyah_profile["themes"], key="parent_theme")
+        taaleem_goal = st.selectbox("What learning/upbringing goal matters most?", tarbiyah_profile["goals"])
         seed = st.text_area("Parent notes", key="parent_notes", placeholder="Aisha was nervous about trying a new activity, and she loves football and drawing.")
     with right:
-        style = st.selectbox("Story feeling", ["Warm and playful", "Gentle and reassuring", "Funny adventure", "Mystery without scary moments"])
-        setting = st.selectbox("Story setting", ["A Doha neighbourhood", "A family home", "A magical garden", "A football field", "A place chosen by Fanar"])
-        ending = st.selectbox("Ending", ["A small act of courage", "A kind choice", "A creative invention", "A family celebration"])
+        style = st.selectbox("Story feeling", ["Warm and reassuring", "Gentle and playful", "Respectful and reflective", "Funny but well-mannered", "Hopeful and confidence-building"])
+        setting = st.selectbox("Story setting", ["A Qatar/Gulf family home", "A Doha neighbourhood", "A school and friends setting", "A majlis or family gathering", "A mosque/community setting", "A sports or activity day", "A place chosen by Fanar"])
+        ending = st.selectbox("Ending", ["A small act of adab", "A kind family choice", "A responsible decision", "A moment of gratitude", "A helpful community action"])
         read_parent_story = st.checkbox("Read the story aloud after creation", value=True, key="read_parent_story")
     if st.button("✨ Generate my Fanar Storybook", type="primary", use_container_width=True):
-        selected_values = ", ".join(st.session_state.parent_values) or "Kindness"
-        context = f"Child name: {name}. Age: {age}. Language: {language}. Country: {st.session_state.parent_country}. Values: {selected_values}. Theme: {theme}. Story feeling: {style}. Setting: {setting}. Parent notes: {seed}. Ending: {ending}."
+        selected_values = ", ".join(st.session_state.parent_values) or "Kindness and mercy | الرحمة واللطف"
+        context = (
+            f"Child name: {name}. Age: {age}. Gender: {st.session_state.learner_gender}. "
+            f"Language: {language}. Country/context: {st.session_state.parent_country}. "
+            f"Age tarbiyah category: {tarbiyah_profile['label']}. Age guidance: {tarbiyah_profile['focus']} "
+            f"Why this fits age: {tarbiyah_profile['why']} "
+            f"Parent selected tarbiyah values: {selected_values}. "
+            f"Tarbiyah focus: {theme}. Ta'leem/upbringing goal: {taaleem_goal}. "
+            f"Story feeling: {style}. Setting: {setting}. Ending: {ending}. "
+            f"Parent notes: {seed}. "
+            "Use gentle Arabic/Islamic adab concepts, but do not quote Quran or hadith unless the exact text is supplied by the parent."
+        )
         with st.spinner("Fanar is creating a storybook for your family..."):
             result = ask_fanar(PARENT_STORYBOOK_PROMPT, context)
         if not result:

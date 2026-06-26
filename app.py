@@ -227,10 +227,58 @@ def preferred_tts_voice(language_choice):
     return TTS_VOICE_AR if language_choice == "Arabic" else TTS_VOICE_EN
 
 
+ARABIC_ORDINALS = {
+    1: ["1", "١", "الأول", "الاول", "الأولى", "الاولى"],
+    2: ["2", "٢", "الثاني", "الثانية"],
+    3: ["3", "٣", "الثالث", "الثالثة"],
+    4: ["4", "٤", "الرابع", "الرابعة"],
+    5: ["5", "٥", "الخامس", "الخامسة"],
+}
+
+
+def story_section_label(kind, number):
+    """Match English and Arabic structured story labels."""
+    ordinal = "|".join(re.escape(item) for item in ARABIC_ORDINALS.get(number, [str(number)]))
+    if kind == "scene":
+        arabic_words = rf"(?:المشهد|مشهد)\s*(?:{ordinal})"
+        english_words = rf"SCENE\s*{number}"
+    else:
+        arabic_words = rf"(?:الصورة|صورة)\s*(?:{ordinal})"
+        english_words = rf"IMAGE\s*{number}"
+    return rf"\*{{0,2}}(?:{english_words}|{arabic_words})\s*[:：\-–—]?\*{{0,2}}"
+
+
+def story_ending_label():
+    """Match labels that usually appear after the four scenes."""
+    return (
+        r"\*{0,2}(?:"
+        r"TALK TOGETHER|CREATE NEXT|SKILL BADGE|PARENT NOTE|HOME ACTIVITY|QUESTION|"
+        r"تحدثوا معًا|تحدثوا معا|لنتحدث|اسأل الأسرة|اسألوا الأسرة|نشاط منزلي|النشاط المنزلي|"
+        r"ملاحظة للوالدين|ملاحظة للوالد|ملاحظة للوالدة|سؤال للعائلة|الخلاصة|النهاية"
+        r")\s*[:：\-–—]?\*{0,2}"
+    )
+
+
 def build_story_narration(story):
     """Turn Fanar's structured story response into clean read-aloud text."""
-    text = re.sub(r"\*{0,2}IMAGE\s*\d+:?\*{0,2}.*?(?=\n\*{0,2}SCENE\s*\d+:|\n\*{0,2}(TALK TOGETHER|CREATE NEXT|SKILL BADGE|PARENT NOTE|HOME ACTIVITY):|\Z)", "", story, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"\*{0,2}(TITLE|MORAL|AGE FIT|CAREER SPARK|SCENE\s*\d+|STORY|TALK TOGETHER|CREATE NEXT|SKILL BADGE|PARENT NOTE|HOME ACTIVITY|QUESTION):?\*{0,2}", "", text, flags=re.IGNORECASE)
+    text = story
+    for number in range(1, 5):
+        image_label = story_section_label("image", number)
+        next_scene_label = story_section_label("scene", number + 1)
+        text = re.sub(
+            rf"{image_label}.*?(?=\n\s*(?:{next_scene_label}|{story_ending_label()})|\Z)",
+            "",
+            text,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+    text = re.sub(
+        r"\*{0,2}(TITLE|MORAL|AGE FIT|CAREER SPARK|STORY|TALK TOGETHER|CREATE NEXT|SKILL BADGE|PARENT NOTE|HOME ACTIVITY|QUESTION):?\*{0,2}",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    for number in range(1, 5):
+        text = re.sub(story_section_label("scene", number), "", text, flags=re.IGNORECASE)
     text = re.sub(r"\n{3,}", "\n\n", text)
     text = re.sub(r"[ \t]+", " ", text).strip()
     return text
@@ -344,8 +392,19 @@ def parse_story_scenes(story):
     """Extract displayed story text and its matching image prompt for each scene."""
     scenes = []
     for number in range(1, 5):
-        scene_match = re.search(rf"\*{{0,2}}SCENE\s*{number}:?\*{{0,2}}\s*(.*?)(?=\*{{0,2}}IMAGE\s*{number}:?\*{{0,2}}|\Z)", story, re.DOTALL | re.IGNORECASE)
-        image_match = re.search(rf"\*{{0,2}}IMAGE\s*{number}:?\*{{0,2}}\s*(.*?)(?=\*{{0,2}}SCENE\s*{number + 1}:?\*{{0,2}}|\*{{0,2}}TALK TOGETHER:?\*{{0,2}}|\Z)", story, re.DOTALL | re.IGNORECASE)
+        scene_label = story_section_label("scene", number)
+        image_label = story_section_label("image", number)
+        next_scene_label = story_section_label("scene", number + 1)
+        scene_match = re.search(
+            rf"{scene_label}\s*(.*?)(?={image_label}|\Z)",
+            story,
+            re.DOTALL | re.IGNORECASE,
+        )
+        image_match = re.search(
+            rf"{image_label}\s*(.*?)(?=\n\s*(?:{next_scene_label}|{story_ending_label()})|\Z)",
+            story,
+            re.DOTALL | re.IGNORECASE,
+        )
         if scene_match:
             text = re.sub(r"\s+", " ", scene_match.group(1)).strip()
             prompt = re.sub(r"\s+", " ", image_match.group(1)).strip() if image_match else "A warm child-safe storybook scene based on this moment: " + text

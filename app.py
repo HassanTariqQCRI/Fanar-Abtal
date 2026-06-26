@@ -7,6 +7,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from io import BytesIO
 from docx import Document
+from docx.shared import Inches
 from PIL import Image, UnidentifiedImageError
 
 load_dotenv()
@@ -24,6 +25,7 @@ TTS_VOICE_EN = os.getenv("FANAR_TTS_VOICE_EN", "Amelia")
 TTS_VOICE_AR = os.getenv("FANAR_TTS_VOICE_AR", "Hamad")
 os.makedirs("generated_images", exist_ok=True)
 os.makedirs("generated_audio", exist_ok=True)
+os.makedirs("generated_docx", exist_ok=True)
 
 st.set_page_config(page_title="Fanar Abtal | Road to Abtal", page_icon="🌟", layout="wide")
 
@@ -450,6 +452,83 @@ def make_word_storybook(child_name, story):
     return output.getvalue()
 
 
+def make_child_career_storybook(child_name, child_age, language, career, interest, profile, story, scenes=None):
+    """Create a printable Word keepsake for the child-facing career adventure."""
+    scenes = scenes or []
+    document = Document()
+    document.add_heading("Fanar Abtal", 0)
+    document.add_paragraph(f"Age-Smart Career Adventure for {child_name}")
+    document.add_paragraph("Printable storybook | Road to Abtal", style="Subtitle")
+
+    document.add_heading("Child profile", level=1)
+    document.add_paragraph(f"Name: {child_name}")
+    document.add_paragraph(f"Age: {child_age}")
+    document.add_paragraph(f"Language: {language}")
+    document.add_paragraph(f"Age category: {profile['label']}")
+    document.add_paragraph(f"Future path: {career}")
+    document.add_paragraph(f"Interest: {interest}")
+
+    age_fit = re.search(r"\*{0,2}AGE FIT:?\*{0,2}\s*(.*?)(?=\n\*{0,2}CAREER SPARK|\Z)", story, re.DOTALL | re.IGNORECASE)
+    spark = re.search(r"\*{0,2}CAREER SPARK:?\*{0,2}\s*(.*?)(?=\n\*{0,2}SCENE 1|\Z)", story, re.DOTALL | re.IGNORECASE)
+    if age_fit or spark:
+        document.add_heading("Why this story fits", level=1)
+        if age_fit:
+            document.add_paragraph(age_fit.group(1).strip())
+        if spark:
+            document.add_paragraph("Career spark: " + spark.group(1).strip())
+
+    if scenes:
+        document.add_heading("The illustrated story", level=1)
+        for scene in scenes:
+            document.add_heading(f"Scene {scene['number']}", level=2)
+            image_path = scene.get("image_path")
+            if image_path and os.path.exists(image_path):
+                try:
+                    document.add_picture(image_path, width=Inches(5.4))
+                except Exception:
+                    document.add_paragraph("Illustration available in the app preview.")
+            document.add_paragraph(scene["text"])
+    else:
+        document.add_heading("The story", level=1)
+        for line in story.splitlines():
+            clean = line.replace("**", "").strip()
+            if not clean or clean.startswith("IMAGE "):
+                continue
+            if ":" in clean:
+                label, text = clean.split(":", 1)
+                if label.upper() in {"TALK TOGETHER", "CREATE NEXT", "SKILL BADGE", "PARENT NOTE"}:
+                    continue
+                if label.upper() in {"TITLE", "AGE FIT", "CAREER SPARK", "SCENE 1", "SCENE 2", "SCENE 3", "SCENE 4"}:
+                    document.add_heading(label.title(), level=2)
+                    document.add_paragraph(text.strip())
+                    continue
+            document.add_paragraph(clean)
+
+    ending = re.search(r"\*{0,2}(TALK TOGETHER|CREATE NEXT|SKILL BADGE|PARENT NOTE):?\*{0,2}\s*(.*)", story, re.DOTALL | re.IGNORECASE)
+    if ending:
+        document.add_heading("Talk, create, and grow", level=1)
+        for line in ending.group(0).splitlines():
+            clean = line.replace("**", "").strip()
+            if not clean:
+                continue
+            if ":" in clean:
+                label, text = clean.split(":", 1)
+                document.add_heading(label.title(), level=2)
+                document.add_paragraph(text.strip())
+            else:
+                document.add_paragraph(clean)
+
+    document.add_heading("Family note", level=1)
+    document.add_paragraph(
+        "This printable story is for imagination, discussion, and reflection. "
+        "Children explore what helpful professions contribute without pretending to be qualified professionals."
+    )
+
+    output = BytesIO()
+    document.save(output)
+    return output.getvalue()
+
+
 def story_demo(name, seed, language):
     title = "The Little Idea That Shone" if language != "Arabic" else "الفكرة الصغيرة التي أضاءت"
     return f"""**TITLE: {title}**
@@ -838,6 +917,7 @@ Create an original four-scene illustrated storybook using exactly the requested 
         if spark:
             st.markdown(f"<div class='mission'><b>Career Spark:</b> {spark.group(1).strip()}</div>", unsafe_allow_html=True)
         scenes = parse_story_scenes(result)
+        scene_assets = []
         if len(scenes) == 4:
             for scene in scenes:
                 image_path, image_error = None, None
@@ -852,12 +932,30 @@ Create an original four-scene illustrated storybook using exactly the requested 
                 elif image_error:
                     st.info(f"Illustration prompt ready for Scene {scene['number']}: {scene['prompt']}")
                 st.markdown(f"<div class='scene-copy'><div class='scene-label'>Scene {scene['number']}</div><p>{scene['text']}</p></div>", unsafe_allow_html=True)
+                scene_assets.append({**scene, "image_path": image_path})
             ending = re.search(r"\*{0,2}(TALK TOGETHER|CREATE NEXT|SKILL BADGE|PARENT NOTE):?\*{0,2}\s*(.*)", result, re.DOTALL | re.IGNORECASE)
             if ending:
                 st.markdown("### Talk, create, and grow")
                 st.markdown(ending.group(0).strip())
         else:
             st.markdown(result)
+        child_word_file = make_child_career_storybook(
+            name,
+            age,
+            language,
+            career,
+            interest,
+            profile,
+            result,
+            scene_assets,
+        )
+        st.download_button(
+            "📥 Download printable Word storybook",
+            child_word_file,
+            file_name=f"{name}_Fanar_Abtal_Career_Adventure.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+        )
         with st.expander("View Fanar's complete story response"):
             st.markdown(result)
 

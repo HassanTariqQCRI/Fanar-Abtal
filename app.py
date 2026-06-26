@@ -15,10 +15,15 @@ TEXT_URL = os.getenv("FANAR_TEXT_URL", "https://api.fanar.qa/v1/chat/completions
 TEXT_MODEL = os.getenv("FANAR_TEXT_MODEL", "Fanar")
 VISION_MODEL = os.getenv("FANAR_VISION_MODEL")
 TRANSCRIPTION_URL = os.getenv("FANAR_TRANSCRIPTION_URL", "https://api.fanar.qa/v1/audio/transcriptions")
-TRANSCRIPTION_MODEL = os.getenv("FANAR_TRANSCRIPTION_MODEL", "Fanar-Aura-STT-2")
+TRANSCRIPTION_MODEL = os.getenv("FANAR_TRANSCRIPTION_MODEL", "Fanar-Aura-STT-1")
 IMAGE_URL = os.getenv("FANAR_IMAGE_URL", "https://api.fanar.qa/v1/images/generations")
 IMAGE_MODEL = os.getenv("FANAR_IMAGE_MODEL", "Fanar-Oryx-IG-2")
+TTS_URL = os.getenv("FANAR_TTS_URL", "https://api.fanar.qa/v1/audio/speech")
+TTS_MODEL = os.getenv("FANAR_TTS_MODEL", "Fanar-Aura-TTS-2")
+TTS_VOICE_EN = os.getenv("FANAR_TTS_VOICE_EN", "Amelia")
+TTS_VOICE_AR = os.getenv("FANAR_TTS_VOICE_AR", "Hamad")
 os.makedirs("generated_images", exist_ok=True)
+os.makedirs("generated_audio", exist_ok=True)
 
 st.set_page_config(page_title="Fanar Abtal | Road to Abtal", page_icon="🌟", layout="wide")
 
@@ -202,6 +207,85 @@ def transcribe_parent_voice(audio_file):
     except requests.RequestException:
         pass
     return None
+
+
+def preferred_tts_voice(language_choice):
+    """Choose a warm default Fanar voice based on the selected family language."""
+    return TTS_VOICE_AR if language_choice == "Arabic" else TTS_VOICE_EN
+
+
+def build_story_narration(story):
+    """Turn Fanar's structured story response into clean read-aloud text."""
+    text = re.sub(r"\*{0,2}IMAGE\s*\d+:?\*{0,2}.*?(?=\n\*{0,2}SCENE\s*\d+:|\n\*{0,2}(TALK TOGETHER|CREATE NEXT|SKILL BADGE|PARENT NOTE|HOME ACTIVITY):|\Z)", "", story, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"\*{0,2}(TITLE|MORAL|AGE FIT|CAREER SPARK|SCENE\s*\d+|STORY|TALK TOGETHER|CREATE NEXT|SKILL BADGE|PARENT NOTE|HOME ACTIVITY|QUESTION):?\*{0,2}", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"[ \t]+", " ", text).strip()
+    return text
+
+
+def create_story_audio(story, child_name, language_choice):
+    """Create a Fanar TTS narration file for a generated story."""
+    if not API_KEY:
+        return None, "Fanar API key is not configured, so narration is not available yet."
+    narration = build_story_narration(story)
+    if not narration:
+        return None, "There is no story text to narrate yet."
+    if len(narration) > 3800:
+        narration = narration[:3800].rsplit(" ", 1)[0] + "..."
+    voice = preferred_tts_voice(language_choice)
+    try:
+        response = requests.post(
+            TTS_URL,
+            headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": TTS_MODEL,
+                "input": narration,
+                "voice": voice,
+                "response_format": "mp3",
+            },
+            timeout=180,
+        )
+        if response.status_code != 200:
+            return None, f"Fanar voice service returned HTTP {response.status_code}."
+        audio_bytes = response.content
+        content_type = response.headers.get("content-type", "")
+        if "application/json" in content_type:
+            payload = response.json()
+            encoded_audio = payload.get("b64_json") or payload.get("audio") or payload.get("content")
+            if encoded_audio:
+                audio_bytes = base64.b64decode(encoded_audio)
+            else:
+                return None, "Fanar returned a voice response, but no usable audio was found."
+        if not audio_bytes:
+            return None, "Fanar returned no audio content."
+        safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", child_name or "child").strip("_") or "child"
+        audio_path = os.path.join("generated_audio", f"{safe_name}_{uuid.uuid4().hex[:8]}_story.mp3")
+        with open(audio_path, "wb") as audio_file:
+            audio_file.write(audio_bytes)
+        return audio_path, None
+    except (requests.RequestException, ValueError, OSError):
+        return None, "Fanar voice narration could not connect right now."
+
+
+def render_story_audio(audio_path, language_choice):
+    """Show an autoplaying story player with visible controls."""
+    if not audio_path or not os.path.exists(audio_path):
+        return
+    with open(audio_path, "rb") as audio_file:
+        audio_bytes = audio_file.read()
+    encoded_audio = base64.b64encode(audio_bytes).decode("ascii")
+    voice_name = preferred_tts_voice(language_choice)
+    st.markdown(f"### 🎧 Listen to the story with Fanar Voice ({voice_name})")
+    st.markdown(
+        f"""
+        <audio autoplay controls style="width:100%; margin: 8px 0 18px 0;">
+            <source src="data:audio/mp3;base64,{encoded_audio}" type="audio/mp3">
+            Your browser does not support audio playback.
+        </audio>
+        <div class="tiny">If your browser blocks autoplay, press play. The narration is ready for parents, children, and judges.</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def create_scene_image(prompt, scene_number, child_name, age, country):
@@ -633,6 +717,7 @@ elif page == "Parent Story Studio":
         style = st.selectbox("Story feeling", ["Warm and playful", "Gentle and reassuring", "Funny adventure", "Mystery without scary moments"])
         setting = st.selectbox("Story setting", ["A Doha neighbourhood", "A family home", "A magical garden", "A football field", "A place chosen by Fanar"])
         ending = st.selectbox("Ending", ["A small act of courage", "A kind choice", "A creative invention", "A family celebration"])
+        read_parent_story = st.checkbox("Read the story aloud after creation", value=True, key="read_parent_story")
     if st.button("✨ Generate my Fanar Storybook", type="primary", use_container_width=True):
         selected_values = ", ".join(st.session_state.parent_values) or "Kindness"
         context = f"Child name: {name}. Age: {age}. Language: {language}. Country: {st.session_state.parent_country}. Values: {selected_values}. Theme: {theme}. Story feeling: {style}. Setting: {setting}. Parent notes: {seed}. Ending: {ending}."
@@ -642,6 +727,13 @@ elif page == "Parent Story Studio":
             result = story_demo(name, seed, language)
             st.caption("Demo story shown. Add your Fanar API key to generate a fully structured live storybook.")
         st.markdown("## 📖 Your Fanar Storybook")
+        if read_parent_story:
+            with st.spinner("Fanar Voice is preparing the read-aloud story..."):
+                audio_path, audio_error = create_story_audio(result, name, language)
+            if audio_path:
+                render_story_audio(audio_path, language)
+            else:
+                st.info(f"Read-aloud narration is not available yet: {audio_error}")
         scenes = parse_story_scenes(result)
         if len(scenes) == 4:
             st.caption("Read together: each illustration comes first, followed by the moment it brings to life.")
@@ -668,7 +760,7 @@ elif page == "Parent Story Studio":
             st.info("This demo response is text-only. A live Fanar storybook returns four scene prompts, which the app turns into illustrations.")
         word_file = make_word_storybook(name, result)
         st.download_button("📥 Download your Word Storybook", word_file, file_name=f"{name}_Fanar_Abtal_Storybook.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        st.success("Storybook created: story + four illustrated scenes + family guide. Voice narration is the next enhancement.")
+        st.success("Storybook created: story + four illustrated scenes + family guide + read-aloud narration when Fanar Voice is configured.")
 
 elif page == "My Story Maker Legacy":
     st.title("My Story Maker")
@@ -717,6 +809,7 @@ elif page == "My Story Maker":
         helper = st.text_input("Who helps your future self?", placeholder="A parent, teacher, friend, or kind mentor")
         strength = st.selectbox("What strength will you practise?", profile["strengths"])
         illustrate_career = st.checkbox("Create four story illustrations", value=True)
+        read_career_story = st.checkbox("Read my story aloud after creation", value=True, key="read_career_story")
         st.markdown(f"""<div class='source-card'><b>Selection guide:</b> {profile['recommendation']}</div>""", unsafe_allow_html=True)
         st.markdown("""<div class='parent'><b>Fanar promise:</b> this is a safe imagination story. Children explore what each profession contributes without pretending to be qualified professionals.</div>""", unsafe_allow_html=True)
 
@@ -731,6 +824,13 @@ Create an original four-scene illustrated storybook using exactly the requested 
         with st.spinner("Fanar is creating your age-smart career adventure..."):
             result = ask_fanar(CAREER_STORY_PROMPT, context) or career_story_demo(name, career, language)
         st.markdown("## Your Age-Smart Career Adventure")
+        if read_career_story:
+            with st.spinner("Fanar Voice is preparing your read-aloud adventure..."):
+                audio_path, audio_error = create_story_audio(result, name, language)
+            if audio_path:
+                render_story_audio(audio_path, language)
+            else:
+                st.info(f"Read-aloud narration is not available yet: {audio_error}")
         age_fit = re.search(r"\*{0,2}AGE FIT:?\*{0,2}\s*(.*?)(?=\n\*{0,2}CAREER SPARK|\Z)", result, re.DOTALL | re.IGNORECASE)
         if age_fit:
             st.markdown(f"<div class='source-card'><b>Why this fits {profile['label']}:</b> {age_fit.group(1).strip()}</div>", unsafe_allow_html=True)

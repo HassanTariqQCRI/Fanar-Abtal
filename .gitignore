@@ -11,6 +11,15 @@ generated_images/
 generated_pdf/
 generated_stories/
 tts_output.mp3
+generated_cover.png
+*.zip
+Fanar_Abtal_share_*/
+*_Fanar_Abtal_Storybook.pdf
+
+# Local test/helper scripts not needed for deployment
+check_key.py
+test_fanar_*.py
+app_before_image_generation.py
 
 # Local Codex/session files
 .agents/

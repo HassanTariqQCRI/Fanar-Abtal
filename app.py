@@ -561,18 +561,52 @@ def parent_tarbiyah_profile(child_age):
     }
 
 
-def make_word_storybook(child_name, story):
-    """Create a simple printable storybook parents can keep or share at home."""
+def make_word_storybook(child_name, story, scenes=None):
+    """Create a printable parent storybook with text and generated scene images."""
+    scenes = scenes or []
+    scene_map = {scene.get("number"): scene for scene in scenes}
     document = Document()
     document.add_heading("Fanar Abtal", 0)
     document.add_paragraph("A personalised storybook for " + child_name)
-    document.add_paragraph("Road to Abtal", style="Subtitle")
+    document.add_paragraph("Road to Abtal | Parent Story Studio", style="Subtitle")
+
+    if scenes:
+        document.add_heading("Illustrated story scenes", level=1)
+        for scene in scenes:
+            document.add_heading(f"Scene {scene['number']}", level=2)
+            image_path = scene.get("image_path")
+            if image_path and os.path.exists(image_path):
+                try:
+                    document.add_picture(image_path, width=Inches(5.8))
+                except Exception:
+                    document.add_paragraph("[Illustration could not be embedded in this document.]")
+            document.add_paragraph(scene.get("text", ""))
+
+        document.add_page_break()
+        document.add_heading("Complete Fanar response", level=1)
+
     for line in story.splitlines():
         clean = line.replace("**", "").strip()
         if not clean:
             continue
         if clean.startswith("TITLE:"):
             document.add_heading(clean.replace("TITLE:", "").strip(), level=1)
+        elif re.match(story_section_label("scene", 1), clean, re.IGNORECASE) and 1 in scene_map:
+            continue
+        elif re.match(story_section_label("scene", 2), clean, re.IGNORECASE) and 2 in scene_map:
+            continue
+        elif re.match(story_section_label("scene", 3), clean, re.IGNORECASE) and 3 in scene_map:
+            continue
+        elif re.match(story_section_label("scene", 4), clean, re.IGNORECASE) and 4 in scene_map:
+            continue
+        elif re.match(story_section_label("image", 1), clean, re.IGNORECASE):
+            continue
+        elif re.match(story_section_label("image", 2), clean, re.IGNORECASE):
+            continue
+        elif re.match(story_section_label("image", 3), clean, re.IGNORECASE):
+            continue
+        elif re.match(story_section_label("image", 4), clean, re.IGNORECASE):
+            continue
         elif clean.split(":", 1)[0] in {"TARBIYAH FOCUS", "MORAL", "SCENE 1", "SCENE 2", "SCENE 3", "SCENE 4", "TALK TOGETHER", "HOME ACTIVITY", "PARENT TARBIYAH NOTE"}:
             label, text = clean.split(":", 1)
             document.add_heading(label.title(), level=2)
@@ -986,30 +1020,30 @@ elif page == "Parent Story Studio":
             else:
                 st.info(f"Read-aloud narration is not available yet: {audio_error}")
         scenes = parse_story_scenes(result)
+        scene_assets = []
         if len(scenes) == 4:
             st.caption("Read together: each illustration comes first, followed by the moment it brings to life.")
-            image_paths = []
             for scene in scenes:
                 with st.spinner(f"Fanar is illustrating scene {scene['number']} of 4..."):
                     image_path, image_error = create_scene_image(
                         scene["prompt"], scene["number"], name, age, st.session_state.parent_country
                     )
                 if image_path:
-                    image_paths.append(image_path)
                     st.image(image_path, caption=f"Fanar illustration — Scene {scene['number']}", use_container_width=True)
                 else:
                     st.warning(f"Scene {scene['number']} illustration is not available yet: {image_error}")
                     with st.expander(f"Scene {scene['number']} illustration prompt"):
                         st.write(scene["prompt"])
                 st.markdown(f"<div class='scene-copy'><div class='scene-label'>Scene {scene['number']}</div><p>{scene['text']}</p></div>", unsafe_allow_html=True)
-            tail = re.search(r"\*{0,2}TALK TOGETHER:?\*{0,2}\s*(.*)", result, re.DOTALL | re.IGNORECASE)
+                scene_assets.append({**scene, "image_path": image_path})
+            tail = re.search(rf"{story_ending_label()}\s*(.*)", result, re.DOTALL | re.IGNORECASE)
             if tail:
                 st.markdown("### 💬 Family Guide")
                 st.markdown(tail.group(1).strip())
         else:
             st.markdown(result)
             st.info("This demo response is text-only. A live Fanar storybook returns four scene prompts, which the app turns into illustrations.")
-        word_file = make_word_storybook(name, result)
+        word_file = make_word_storybook(name, result, scene_assets)
         st.download_button("📥 Download your Word Storybook", word_file, file_name=f"{name}_Fanar_Abtal_Storybook.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         st.success("Storybook created: story + four illustrated scenes + family guide + read-aloud narration when Fanar Voice is configured.")
 

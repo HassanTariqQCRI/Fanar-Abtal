@@ -53,7 +53,7 @@ FANAR_IMAGE_MODEL=Fanar-Oryx-IG-2
 Optional, when a Fanar image-to-text model is available:
 
 ```env
-FANAR_VISION_MODEL=your_fanar_image_to_text_model
+FANAR_VISION_MODEL=Fanar-Oryx-IVU-2
 ```
 
 Start the app:
@@ -70,7 +70,7 @@ http://localhost:8501
 
 ## OCR note
 
-The Activity Companion can use local OCR as a backup to read flyer text. For this to work, install the Tesseract OCR desktop application with English and Arabic language data.
+The Activity Companion uses Fanar image-to-text (`Fanar-Oryx-IVU-2`) first to read uploaded flyer images. Local OCR is only a backup if Fanar image reading is unavailable. For the backup to work, install the Tesseract OCR desktop application with English and Arabic language data.
 
 If OCR or Fanar image reading is not available, the app still works: parents can paste the WhatsApp caption or visible flyer text.
 

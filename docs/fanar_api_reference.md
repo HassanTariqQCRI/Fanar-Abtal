@@ -35,6 +35,7 @@ FANAR_TEXT_MODEL=Fanar
 
 FANAR_IMAGE_URL=https://api.fanar.qa/v1/images/generations
 FANAR_IMAGE_MODEL=Fanar-Oryx-IG-2
+FANAR_VISION_MODEL=Fanar-Oryx-IVU-2
 
 FANAR_TTS_URL=https://api.fanar.qa/v1/audio/speech
 FANAR_TTS_MODEL=Fanar-Aura-TTS-2
@@ -79,6 +80,12 @@ Visible model options from screenshots:
 - `Fanar-Sadiq`
 - `Fanar-Sadiq-Agentic`
 - `Fanar-Oryx-IVU-2`
+
+Implementation update:
+
+- Activity Companion now uses `Fanar-Oryx-IVU-2` as the primary uploaded-flyer image-to-text model.
+- Local OCR is kept only as a backup if Fanar image reading is unavailable or rate-limited.
+- The extraction prompt asks Fanar to preserve visible flyer text and identify parent-relevant child/family details such as age fit, supervision, language support, safety, cost, registration, and unclear items needing confirmation.
 
 Notes:
 
@@ -359,12 +366,12 @@ Visible model name:
 
 Notes:
 
-- The screenshots show this model in the model/rate-limit list, but the exact image-to-text request shape was not captured.
-- Keep the current local OCR fallback for WhatsApp flyers until the mentor confirms the correct Fanar image-to-text API usage.
+- The Activity Companion uses this model first through the OpenAI-compatible chat image-message format.
+- Local OCR remains only as a backup if Fanar image reading is unavailable or rate-limited.
 
-Recommended Fanar Abtal use once confirmed:
+Recommended Fanar Abtal use:
 
-- Replace or supplement local OCR for Activity Companion.
+- Use Fanar image-to-text as the primary uploaded-flyer reader for Activity Companion.
 - Let parents upload WhatsApp flyers and ask Fanar to extract event details.
 - Keep “Needs confirmation” for unclear dates, prices, locations, and registration links.
 
@@ -576,8 +583,8 @@ Design implication:
    - Keep prompts culturally respectful and child-friendly.
 
 6. WhatsApp flyer reading
-   - Continue local OCR fallback for now.
-   - Add Fanar image-to-text when `Fanar-Oryx-IVU-2` usage is confirmed by the mentor.
+   - Use `Fanar-Oryx-IVU-2` first for uploaded flyer images.
+   - Keep local OCR only as a backup if Fanar image-to-text is unavailable.
 
 7. Poems and reflection
    - Use `Fanar-Diwan` to create short celebration poems after a child completes a journey.

@@ -11,18 +11,30 @@ from docx.shared import Inches
 from PIL import Image, UnidentifiedImageError
 
 load_dotenv()
-API_KEY = os.getenv("FANAR_API_KEY")
-TEXT_URL = os.getenv("FANAR_TEXT_URL", "https://api.fanar.qa/v1/chat/completions")
-TEXT_MODEL = os.getenv("FANAR_TEXT_MODEL", "Fanar")
-VISION_MODEL = os.getenv("FANAR_VISION_MODEL")
-TRANSCRIPTION_URL = os.getenv("FANAR_TRANSCRIPTION_URL", "https://api.fanar.qa/v1/audio/transcriptions")
-TRANSCRIPTION_MODEL = os.getenv("FANAR_TRANSCRIPTION_MODEL", "Fanar-Aura-STT-1")
-IMAGE_URL = os.getenv("FANAR_IMAGE_URL", "https://api.fanar.qa/v1/images/generations")
-IMAGE_MODEL = os.getenv("FANAR_IMAGE_MODEL", "Fanar-Oryx-IG-2")
-TTS_URL = os.getenv("FANAR_TTS_URL", "https://api.fanar.qa/v1/audio/speech")
-TTS_MODEL = os.getenv("FANAR_TTS_MODEL", "Fanar-Aura-TTS-2")
-TTS_VOICE_EN = os.getenv("FANAR_TTS_VOICE_EN", "Amelia")
-TTS_VOICE_AR = os.getenv("FANAR_TTS_VOICE_AR", "Hamad")
+
+
+def app_config(name, default=None):
+    value = os.getenv(name)
+    if value:
+        return value
+    try:
+        return st.secrets.get(name, default)
+    except Exception:
+        return default
+
+
+API_KEY = app_config("FANAR_API_KEY")
+TEXT_URL = app_config("FANAR_TEXT_URL", "https://api.fanar.qa/v1/chat/completions")
+TEXT_MODEL = app_config("FANAR_TEXT_MODEL", "Fanar")
+VISION_MODEL = app_config("FANAR_VISION_MODEL")
+TRANSCRIPTION_URL = app_config("FANAR_TRANSCRIPTION_URL", "https://api.fanar.qa/v1/audio/transcriptions")
+TRANSCRIPTION_MODEL = app_config("FANAR_TRANSCRIPTION_MODEL", "Fanar-Aura-STT-1")
+IMAGE_URL = app_config("FANAR_IMAGE_URL", "https://api.fanar.qa/v1/images/generations")
+IMAGE_MODEL = app_config("FANAR_IMAGE_MODEL", "Fanar-Oryx-IG-2")
+TTS_URL = app_config("FANAR_TTS_URL", app_config("FANAR_VOICE_URL", "https://api.fanar.qa/v1/audio/speech"))
+TTS_MODEL = app_config("FANAR_TTS_MODEL", app_config("FANAR_VOICE_MODEL", "Fanar-Aura-TTS-2"))
+TTS_VOICE_EN = app_config("FANAR_TTS_VOICE_EN", "Amelia")
+TTS_VOICE_AR = app_config("FANAR_TTS_VOICE_AR", "Hamad")
 os.makedirs("generated_images", exist_ok=True)
 os.makedirs("generated_audio", exist_ok=True)
 os.makedirs("generated_docx", exist_ok=True)
@@ -368,7 +380,8 @@ Constraints: no written words, letters, logos, watermarks, scary content, or cop
             json={"model": IMAGE_MODEL, "prompt": visual_prompt}, timeout=180,
         )
         if response.status_code != 200:
-            return None, f"Fanar image service returned {response.status_code}."
+            details = response.text[:220].replace("\n", " ")
+            return None, f"Fanar image service returned HTTP {response.status_code}: {details}"
         item = response.json().get("data", [None])[0]
         if not item:
             return None, "Fanar did not return an image."
@@ -384,8 +397,10 @@ Constraints: no written words, letters, logos, watermarks, scary content, or cop
         else:
             return None, "Fanar returned an image without usable image data."
         return path, None
-    except (requests.RequestException, ValueError, OSError):
-        return None, "Fanar could not create this illustration right now."
+    except requests.RequestException as error:
+        return None, f"Fanar image request failed: {error}"
+    except (ValueError, OSError) as error:
+        return None, f"Fanar image data could not be saved: {error}"
 
 
 def parse_story_scenes(story):
@@ -1030,6 +1045,8 @@ elif page == "Parent Story Studio":
                     )
                 if image_path:
                     st.image(image_path, caption=f"Fanar illustration — Scene {scene['number']}", use_container_width=True)
+                    if image_error:
+                        st.caption(f"Placeholder shown because live Fanar image generation failed: {image_error}")
                 else:
                     st.warning(f"Scene {scene['number']} illustration is not available yet: {image_error}")
                     with st.expander(f"Scene {scene['number']} illustration prompt"):
@@ -1135,6 +1152,8 @@ Create an original four-scene illustrated storybook using exactly the requested 
                     image_path = placeholder if os.path.exists(placeholder) else None
                 if image_path:
                     st.image(image_path, caption=f"Scene {scene['number']} - {career.split(' | ')[0]}", use_container_width=True)
+                    if image_error:
+                        st.caption(f"Placeholder shown because live Fanar image generation failed: {image_error}")
                 elif image_error:
                     st.info(f"Illustration prompt ready for Scene {scene['number']}: {scene['prompt']}")
                 st.markdown(f"<div class='scene-copy'><div class='scene-label'>Scene {scene['number']}</div><p>{scene['text']}</p></div>", unsafe_allow_html=True)
@@ -1206,6 +1225,8 @@ Create an original four-scene illustrated storybook using exactly the requested 
                     image_path = placeholder if os.path.exists(placeholder) else None
                 if image_path:
                     st.image(image_path, caption=f"Scene {scene['number']} — {career.split(' | ')[0]}", use_container_width=True)
+                    if image_error:
+                        st.caption(f"Placeholder shown because live Fanar image generation failed: {image_error}")
                 elif image_error:
                     st.info(f"Illustration prompt ready for Scene {scene['number']}: {scene['prompt']}")
                 st.markdown(f"<div class='scene-copy'><div class='scene-label'>Scene {scene['number']}</div><p>{scene['text']}</p></div>", unsafe_allow_html=True)

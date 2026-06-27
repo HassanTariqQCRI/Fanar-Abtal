@@ -135,6 +135,7 @@ Your role is to turn a community activity announcement from WhatsApp, social med
 Qatar includes Arabic-speaking families and families from many linguistic and cultural backgrounds. Never assume that an Arabic activity announcement means the family prefers Arabic. Respond in the family's selected language. If the family selects Both, write English first and provide short Arabic headings or key details. Preserve official names, dates, locations, registration details, and links exactly as stated in the source. Be culturally respectful and inclusive; do not assume nationality, religion, income, school type, or family structure.
 
 Safety and accuracy rules:
+- The ACTIVITY CARD must use the activity name and details from the supplied announcement. Do not use examples, previous demo data, or unrelated activities.
 - Extract only facts clearly stated in the supplied announcement. Never invent a date, organiser, venue, cost, age requirement, registration link, QR result, or availability.
 - Put unclear, missing, conflicting, or image-only information under NEEDS CONFIRMATION.
 - Do not claim that you registered the child, verified the event, contacted the organiser, scanned a QR code, or observed the child.
@@ -848,6 +849,85 @@ def activity_demo(name, age, family_language, interests, goal):
 """
 
 
+def activity_fallback_from_text(name, age, family_language, interests, goal, source_text):
+    """Build a conservative journey from the actual supplied flyer text if Fanar text generation is unavailable."""
+    cleaned = re.sub(r"\*+", "", source_text or "")
+    cleaned = re.sub(r"(VISIBLE FLYER TEXT|PARENT-RELEVANT DETAILS|NEEDS CONFIRMATION)\s*:?", "\n", cleaned, flags=re.IGNORECASE)
+    lines = [
+        re.sub(r"\s+", " ", line).strip(" -:\t")
+        for line in cleaned.splitlines()
+        if re.sub(r"\s+", " ", line).strip(" -:\t")
+    ]
+    meaningful = [line for line in lines if len(line) > 2]
+    title = meaningful[0] if meaningful else "Uploaded community activity"
+    visible_details = meaningful[1:7]
+    date_bits = re.findall(r"(?:\d{1,2}\s*[-–]\s*\d{1,2}\s+\w+\s+\d{4}|\d{1,2}\s+\w+\s+\d{4}|\d{1,2}\s*[-–]\s*\d{1,2}\s+\S+|\d{4})", cleaned)
+    time_bits = re.findall(r"(?:\d{1,2}\s*(?::\d{2})?\s*(?:am|pm|AM|PM|صباح|ظه|مساء)|\d{1,2}\s*:\s*\d{2})", cleaned)
+    has_registration = bool(re.search(r"QR|register|registration|تسجيل|التسجيل|رابط", cleaned, re.IGNORECASE))
+    detail_lines = "\n".join(f"- {line}" for line in visible_details) or "- Review the extracted flyer text above for the visible announcement details."
+    date_line = ", ".join(dict.fromkeys(date_bits[:4])) if date_bits else "Not clearly stated in extracted text."
+    time_line = ", ".join(dict.fromkeys(time_bits[:4])) if time_bits else "Not clearly stated in extracted text."
+    registration_line = "Registration appears to be mentioned in the flyer; confirm the exact method/link/QR with the organiser." if has_registration else "Registration method is not clearly stated in the extracted text."
+
+    return f"""## ACTIVITY CARD:
+- **{title}**
+- Dates found: {date_line}
+- Times found: {time_line}
+- Registration: {registration_line}
+- Visible flyer details:
+{detail_lines}
+
+## AUDIENCE AND ACCESS:
+- Use only the uploaded flyer details above. Exact child age range, venue, cost, capacity, and organiser contact should be confirmed unless they are clearly visible in the extracted text.
+
+## SUITABILITY:
+- Possible fit for {name}, age {age}, only after confirming age eligibility, supervision, and language support.
+- Family goal: {goal}.
+
+## WHY IT MAY FIT:
+- It may support {goal.lower()} if the activity is age-appropriate and supervised.
+- It can connect with {name}'s interests: {interests}.
+- The family should compare the activity schedule and requirements with the child's routine.
+
+## PRACTICAL CHECKS:
+- Confirm the exact organiser, location, dates, times, cost, registration method, and what the child should bring.
+- Ask whether parents must stay, drop off, or complete consent forms.
+- Confirm whether Arabic, English, or bilingual support is available.
+
+## NEEDS CONFIRMATION:
+- Exact eligibility age.
+- Programme language and bilingual support.
+- Venue, fee, capacity, organiser contact, and registration deadline.
+- Any safety, transport, food, or materials requirements.
+
+## BEFORE THE ACTIVITY:
+- Explain to {name} what the flyer says in simple words, and point out what still needs confirmation.
+- Prepare three questions for the organiser before registering.
+- Check that the timing, transport, and supervision work for your family.
+- Parent-child question: What would help you feel confident before joining?
+- Fanar Mission: draw a small checklist titled "Before I Go" with three things to confirm.
+
+## DURING THE ACTIVITY:
+- Notice one new thing, ask one safe question, and practise one friendly introduction.
+- Try to connect the activity to one interest: {interests}.
+- Value to practise: confidence with kindness and responsibility.
+
+## AFTER THE ACTIVITY:
+- Ask: What did you enjoy? What was confusing? What would you like to try again?
+- Home extension: spend 10-20 minutes drawing or writing one thing learned from the activity.
+- Share the drawing or note with a parent or sibling.
+
+## PARENT NOTE:
+- Treat this as guidance from the uploaded flyer, not a confirmed registration. Use the organiser's official channel to verify all practical details.
+
+## ASK THE ORGANISER:
+- What exact age group is this activity for?
+- What language will be used with children, and is bilingual support available?
+- What are the exact venue, fee, schedule, registration steps, and required materials?
+- What supervision and safety arrangements are in place?
+"""
+
+
 def activity_section(response, heading):
     """Read a labelled Fanar activity response into a UI card without depending on markdown style."""
     section_labels = [
@@ -1339,8 +1419,12 @@ Source note: If this came from an uploaded flyer, the text was read first using 
             with st.spinner("Fanar is reading the activity and shaping a family journey..."):
                 response = ask_fanar(ACTIVITY_COMPANION_PROMPT, context)
             if not response:
-                response = activity_demo(name, age, family_language, activity_interests, activity_goal)
-                st.caption("Demo journey shown. Add your Fanar API key for live extraction from any pasted activity announcement.")
+                if source_type == "Try demo flyer":
+                    response = activity_demo(name, age, family_language, activity_interests, activity_goal)
+                    st.caption("Demo journey shown from the built-in demo flyer.")
+                else:
+                    response = activity_fallback_from_text(name, age, family_language, activity_interests, activity_goal, activity_text)
+                    st.caption("Fanar journey generation was unavailable, so the app built a conservative journey from the extracted flyer text without inventing missing details.")
             activity_card = activity_section(response, "ACTIVITY CARD")
             activity_name_match = re.search(r"\*\*(.+?)\*\*", activity_card)
             activity_name = activity_name_match.group(1) if activity_name_match else "Family activity journey"

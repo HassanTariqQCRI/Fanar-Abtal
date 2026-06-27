@@ -768,6 +768,25 @@ That evening, {name} added a new picture to the sign inspired by {seed or 'a fav
 **CREATE NEXT:** Draw what your own helpful sign or invention would look like."""
 
 
+def parent_storybook_demo(name, seed, language):
+    title = "The Little Idea That Shone" if language != "Arabic" else "The Little Idea That Shone"
+    inspiration = seed or "a favourite family moment"
+    return f"""TITLE: {title}
+TARBIYAH FOCUS: This story gently supports amanah, responsibility, and trying again with family encouragement.
+MORAL: Small helpful actions can become bright acts of kindness.
+SCENE 1: {name} noticed that the family bookshelf was messy after a busy day. Instead of feeling upset, {name} had a small idea: make a kind sign to help everyone remember where books belong.
+IMAGE 1: Warm child-safe storybook illustration of {name} sitting with a parent in a cozy Qatar family home, looking at papers and planning a helpful bookshelf sign, gentle colours, no words or logos.
+SCENE 2: At first, the colours did not look right and the letters were crooked. {name} paused, breathed slowly, and asked a family member for one kind suggestion.
+IMAGE 2: Child-friendly illustration of {name} carefully drawing at a table with a supportive adult nearby, art supplies, family home, warm encouraging mood, no readable text or logos.
+SCENE 3: The next day, the sign helped everyone return books to the right place. {name} smiled because a tiny idea had made a real difference for the whole family.
+IMAGE 3: Cheerful storybook scene of {name} placing books neatly on a family bookshelf while relatives smile nearby, Qatar home setting, gentle Islamic family values, no words or logos.
+SCENE 4: That evening, {name} added a new picture inspired by {inspiration}. Everyone said thank you, and {name} saved the next helpful idea in a little notebook.
+IMAGE 4: Peaceful bedtime storybook illustration of {name} drawing a new idea in a notebook beside a tidy bookshelf, soft evening light, hopeful mood, no words or logos.
+TALK TOGETHER: What small helpful idea would you like to try this week?
+HOME ACTIVITY: Draw a simple "helpful home idea" picture and tell your family how it could make one routine easier.
+PARENT TARBIYAH NOTE: Praise the effort, not perfection. Help {name} notice that responsibility grows through small, kind actions."""
+
+
 def career_story_demo(name, career, language):
     """A complete offline career-adventure demo for a reliable child-facing presentation."""
     career_name = career.split(" | ")[0]
@@ -1146,8 +1165,8 @@ elif page == "Parent Story Studio":
         with st.spinner("Fanar is creating a storybook for your family..."):
             result, storybook_error = ask_fanar_with_error(PARENT_STORYBOOK_PROMPT, context)
         if not result:
-            result = story_demo(name, seed, language)
-            st.caption(f"Demo story shown because Fanar storybook generation was unavailable: {storybook_error}")
+            result = parent_storybook_demo(name, seed, language)
+            st.caption(f"Structured demo storybook shown because Fanar storybook generation was unavailable: {storybook_error}")
         st.markdown("## 📖 Your Fanar Storybook")
         if read_parent_story:
             with st.spinner("Fanar Voice is preparing the read-aloud story..."):
@@ -1165,6 +1184,9 @@ elif page == "Parent Story Studio":
                     image_path, image_error = create_scene_image(
                         scene["prompt"], scene["number"], name, age, st.session_state.parent_country
                     )
+                if not image_path:
+                    placeholder = f"fanar_placeholder_scene_{scene['number']}.png"
+                    image_path = placeholder if os.path.exists(placeholder) else None
                 if image_path:
                     st.image(image_path, caption=f"Fanar illustration — Scene {scene['number']}", use_container_width=True)
                     if image_error:

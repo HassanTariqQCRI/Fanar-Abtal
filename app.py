@@ -35,6 +35,10 @@ TTS_URL = app_config("FANAR_TTS_URL", app_config("FANAR_VOICE_URL", "https://api
 TTS_MODEL = app_config("FANAR_TTS_MODEL", app_config("FANAR_VOICE_MODEL", "Fanar-Aura-TTS-2"))
 TTS_VOICE_EN = app_config("FANAR_TTS_VOICE_EN", "Amelia")
 TTS_VOICE_AR = app_config("FANAR_TTS_VOICE_AR", "Hamad")
+TTS_VOICE_FATHER = app_config("FANAR_TTS_VOICE_FATHER")
+TTS_VOICE_MOTHER = app_config("FANAR_TTS_VOICE_MOTHER")
+TTS_VOICE_GRANDPARENT = app_config("FANAR_TTS_VOICE_GRANDPARENT")
+TTS_VOICE_FAVORITE = app_config("FANAR_TTS_VOICE_FAVORITE")
 os.makedirs("generated_images", exist_ok=True)
 os.makedirs("generated_audio", exist_ok=True)
 os.makedirs("generated_docx", exist_ok=True)
@@ -282,6 +286,99 @@ def preferred_tts_voice(language_choice):
     return TTS_VOICE_AR if language_choice == "Arabic" else TTS_VOICE_EN
 
 
+def age_image_design_mode(child_age):
+    if child_age <= 7:
+        return "Ages 5-7: simple, colourful, playful, concrete scenes with warm family details."
+    if child_age <= 10:
+        return "Ages 8-10: adventure, badges, teamwork, curiosity, and clear visual missions."
+    if child_age <= 13:
+        return "Ages 11-13: confidence, identity, friendship, responsibility, and more expressive scenes."
+    return "Ages 14+: mature, future-focused, leadership, portfolio-style visual storytelling."
+
+
+def render_image_settings(prefix, child_age):
+    visual_style = st.selectbox(
+        "Illustration style",
+        ["Age-smart Fanar choice", "Soft storybook", "Playful cartoon", "Watercolor", "Warm realistic", "Adventure comic"],
+        key=f"{prefix}_image_style",
+    )
+    colour_mood = st.selectbox(
+        "Colour mood",
+        ["Parent choice: warm and balanced", "Bright and playful", "Soft pastels", "Calm blue and green", "Desert sunrise", "Child's favourite colours"],
+        key=f"{prefix}_image_colours",
+    )
+    family_context = st.selectbox(
+        "Family/cultural setting",
+        ["Qatar family home", "Doha neighbourhood", "School or learning space", "Mosque/community setting", "Park or activity day", "Let Fanar choose safely"],
+        key=f"{prefix}_image_context",
+    )
+    character_preferences = st.text_input(
+        "Child preferences for images",
+        placeholder="Favorite colours, hobbies, clothing style, familiar places...",
+        key=f"{prefix}_image_preferences",
+    )
+    age_mode = st.checkbox("Let Fanar adapt design to the child's age", value=True, key=f"{prefix}_age_image_mode")
+    return {
+        "visual_style": visual_style,
+        "colour_mood": colour_mood,
+        "family_context": family_context,
+        "character_preferences": character_preferences,
+        "age_mode": age_image_design_mode(child_age) if age_mode else "Use the parent's explicit visual choices.",
+    }
+
+
+def image_settings_text(settings):
+    return (
+        f"Image preferences: style={settings['visual_style']}; colours={settings['colour_mood']}; "
+        f"setting={settings['family_context']}; child preferences={settings['character_preferences'] or 'not specified'}; "
+        f"age design guidance={settings['age_mode']}"
+    )
+
+
+def render_voice_settings(prefix, language_choice):
+    enabled = st.checkbox("Read the story aloud after creation", value=True, key=f"{prefix}_read_story")
+    voice_source = st.selectbox(
+        "Narration voice",
+        ["Fanar default voice", "Father's cloned voice", "Mother's cloned voice", "Grandparent cloned voice", "Favorite trusted person voice"],
+        key=f"{prefix}_voice_source",
+    )
+    voice_style = st.selectbox(
+        "Narration feeling",
+        ["Warm bedtime", "Gentle parent", "Energetic storyteller", "Calm learning guide", "Celebration voice"],
+        key=f"{prefix}_voice_style",
+    )
+    custom_voice = st.text_input(
+        "Optional Fanar personalized voice name",
+        placeholder="Only if Fanar has authorized and created this voice",
+        key=f"{prefix}_custom_voice",
+    )
+    configured = {
+        "Father's cloned voice": TTS_VOICE_FATHER,
+        "Mother's cloned voice": TTS_VOICE_MOTHER,
+        "Grandparent cloned voice": TTS_VOICE_GRANDPARENT,
+        "Favorite trusted person voice": TTS_VOICE_FAVORITE,
+    }
+    selected_voice = custom_voice.strip() or configured.get(voice_source) or preferred_tts_voice(language_choice)
+    fallback_note = ""
+    if voice_source != "Fanar default voice" and not (custom_voice.strip() or configured.get(voice_source)):
+        fallback_note = "Personalized voice not configured yet; using the safe Fanar default voice."
+        st.caption(fallback_note)
+    return {
+        "enabled": enabled,
+        "voice_source": voice_source,
+        "voice_style": voice_style,
+        "voice_name": selected_voice,
+        "fallback_note": fallback_note,
+    }
+
+
+def voice_settings_text(settings):
+    return (
+        f"Voice preferences: source={settings['voice_source']}; narration feeling={settings['voice_style']}; "
+        f"Fanar voice name={settings['voice_name']}; {settings['fallback_note']}"
+    )
+
+
 ARABIC_ORDINALS = {
     1: ["1", "١", "الأول", "الاول", "الأولى", "الاولى"],
     2: ["2", "٢", "الثاني", "الثانية"],
@@ -339,7 +436,7 @@ def build_story_narration(story):
     return text
 
 
-def create_story_audio(story, child_name, language_choice):
+def create_story_audio(story, child_name, language_choice, voice_name=None, voice_style=None):
     """Create a Fanar TTS narration file for a generated story."""
     if not API_KEY:
         return None, "Fanar API key is not configured, so narration is not available yet."
@@ -348,7 +445,7 @@ def create_story_audio(story, child_name, language_choice):
         return None, "There is no story text to narrate yet."
     if len(narration) > 3800:
         narration = narration[:3800].rsplit(" ", 1)[0] + "..."
-    voice = preferred_tts_voice(language_choice)
+    voice = voice_name or preferred_tts_voice(language_choice)
     try:
         response = requests.post(
             TTS_URL,
@@ -404,13 +501,14 @@ def render_story_audio(audio_path, language_choice):
     )
 
 
-def create_scene_image(prompt, scene_number, child_name, age, country):
+def create_scene_image(prompt, scene_number, child_name, age, country, image_preferences=None):
     """Create one consistent, child-safe illustration for a story scene."""
     if not API_KEY:
         return None, "FANAR_API_KEY is not configured."
     visual_prompt = f"""Use case: illustration-story.
 Asset type: children's storybook scene.
 Primary request: {prompt}
+Family image settings: {image_preferences or 'Use Fanar age-aware child-safe defaults.'}
 Subject continuity: {child_name}, age {age}, from {country}; keep the same friendly child character and outfit style across all four scenes.
 Style/medium: polished, colourful hand-painted children's book illustration with gentle expressive faces.
 Composition/framing: clear action, one scene only, generous visual storytelling.
@@ -1148,7 +1246,13 @@ elif page == "Parent Story Studio":
         style = st.selectbox("Story feeling", ["Warm and reassuring", "Gentle and playful", "Respectful and reflective", "Funny but well-mannered", "Hopeful and confidence-building"])
         setting = st.selectbox("Story setting", ["A Qatar/Gulf family home", "A Doha neighbourhood", "A school and friends setting", "A majlis or family gathering", "A mosque/community setting", "A sports or activity day", "A place chosen by Fanar"])
         ending = st.selectbox("Ending", ["A small act of adab", "A kind family choice", "A responsible decision", "A moment of gratitude", "A helpful community action"])
-        read_parent_story = st.checkbox("Read the story aloud after creation", value=True, key="read_parent_story")
+    parent_image_tab, parent_voice_tab = st.tabs(["Image settings", "Voice settings"])
+    with parent_image_tab:
+        st.caption("Parents guide the look of the story while Fanar keeps scenes child-safe and age-aware.")
+        parent_image_settings = render_image_settings("parent", age)
+    with parent_voice_tab:
+        st.caption("Choose a Fanar voice now, or prepare for authorized personalized family voices later.")
+        parent_voice_settings = render_voice_settings("parent", language)
     if st.button("✨ Generate my Fanar Storybook", type="primary", use_container_width=True):
         selected_values = ", ".join(st.session_state.parent_values) or "Kindness and mercy | الرحمة واللطف"
         context = (
@@ -1160,6 +1264,8 @@ elif page == "Parent Story Studio":
             f"Tarbiyah focus: {theme}. Ta'leem/upbringing goal: {taaleem_goal}. "
             f"Story feeling: {style}. Setting: {setting}. Ending: {ending}. "
             f"Parent notes: {seed}. "
+            f"{image_settings_text(parent_image_settings)} "
+            f"{voice_settings_text(parent_voice_settings)} "
             "Use gentle Arabic/Islamic adab concepts, but do not quote Quran or hadith unless the exact text is supplied by the parent."
         )
         with st.spinner("Fanar is creating a storybook for your family..."):
@@ -1168,9 +1274,15 @@ elif page == "Parent Story Studio":
             result = parent_storybook_demo(name, seed, language)
             st.caption(f"Structured demo storybook shown because Fanar storybook generation was unavailable: {storybook_error}")
         st.markdown("## 📖 Your Fanar Storybook")
-        if read_parent_story:
+        if parent_voice_settings["enabled"]:
             with st.spinner("Fanar Voice is preparing the read-aloud story..."):
-                audio_path, audio_error = create_story_audio(result, name, language)
+                audio_path, audio_error = create_story_audio(
+                    result,
+                    name,
+                    language,
+                    parent_voice_settings["voice_name"],
+                    parent_voice_settings["voice_style"],
+                )
             if audio_path:
                 render_story_audio(audio_path, language)
             else:
@@ -1182,7 +1294,12 @@ elif page == "Parent Story Studio":
             for scene in scenes:
                 with st.spinner(f"Fanar is illustrating scene {scene['number']} of 4..."):
                     image_path, image_error = create_scene_image(
-                        scene["prompt"], scene["number"], name, age, st.session_state.parent_country
+                        scene["prompt"],
+                        scene["number"],
+                        name,
+                        age,
+                        st.session_state.parent_country,
+                        image_settings_text(parent_image_settings),
                     )
                 if not image_path:
                     placeholder = f"fanar_placeholder_scene_{scene['number']}.png"
@@ -1254,10 +1371,16 @@ elif page == "My Story Maker":
     with b:
         helper = st.text_input("Who helps your future self?", placeholder="A parent, teacher, friend, or kind mentor")
         strength = st.selectbox("What strength will you practise?", profile["strengths"])
-        illustrate_career = st.checkbox("Create four story illustrations", value=True)
-        read_career_story = st.checkbox("Read my story aloud after creation", value=True, key="read_career_story")
         st.markdown(f"""<div class='source-card'><b>Selection guide:</b> {profile['recommendation']}</div>""", unsafe_allow_html=True)
         st.markdown("""<div class='parent'><b>Fanar promise:</b> this is a safe imagination story. Children explore what each profession contributes without pretending to be qualified professionals.</div>""", unsafe_allow_html=True)
+    child_image_tab, child_voice_tab = st.tabs(["Image settings", "Voice settings"])
+    with child_image_tab:
+        illustrate_career = st.checkbox("Create four story illustrations", value=True, key="child_create_images")
+        st.caption("Let the child and parent guide the visual style while Fanar adapts it to the child's age.")
+        child_image_settings = render_image_settings("child", age)
+    with child_voice_tab:
+        st.caption("Choose a narration voice for the child story. Personalized family voices require Fanar authorization.")
+        child_voice_settings = render_voice_settings("child", language)
 
     if st.button(profile["button"], type="primary", use_container_width=True):
         context = f"""Child creator: {name}, age {age}. Response language: {language}.
@@ -1266,13 +1389,21 @@ Dashboard style: {profile['dashboard']}. Required output style: {profile['output
 Dream profession: {career}. Adventure setting: {place}. Story feeling: {feeling}.
 Child interest to weave into the story: {interest}.
 Helpful person: {helper or 'a kind adult mentor'}. Strength to practise: {strength}.
+{image_settings_text(child_image_settings)}
+{voice_settings_text(child_voice_settings)}
 Create an original four-scene illustrated storybook using exactly the requested format."""
         with st.spinner("Fanar is creating your age-smart career adventure..."):
             result = ask_fanar(CAREER_STORY_PROMPT, context) or career_story_demo(name, career, language)
         st.markdown("## Your Age-Smart Career Adventure")
-        if read_career_story:
+        if child_voice_settings["enabled"]:
             with st.spinner("Fanar Voice is preparing your read-aloud adventure..."):
-                audio_path, audio_error = create_story_audio(result, name, language)
+                audio_path, audio_error = create_story_audio(
+                    result,
+                    name,
+                    language,
+                    child_voice_settings["voice_name"],
+                    child_voice_settings["voice_style"],
+                )
             if audio_path:
                 render_story_audio(audio_path, language)
             else:
@@ -1290,7 +1421,14 @@ Create an original four-scene illustrated storybook using exactly the requested 
                 image_path, image_error = None, None
                 if illustrate_career and API_KEY:
                     with st.spinner(f"Fanar is illustrating scene {scene['number']} of 4..."):
-                        image_path, image_error = create_scene_image(scene["prompt"], scene["number"], name, age, "Qatar")
+                        image_path, image_error = create_scene_image(
+                            scene["prompt"],
+                            scene["number"],
+                            name,
+                            age,
+                            "Qatar",
+                            image_settings_text(child_image_settings),
+                        )
                 if not image_path:
                     placeholder = f"fanar_placeholder_scene_{scene['number']}.png"
                     image_path = placeholder if os.path.exists(placeholder) else None

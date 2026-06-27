@@ -14,6 +14,7 @@ tts_output.mp3
 generated_cover.png
 *.zip
 Fanar_Abtal_share_*/
+Fanar_Abtal_Final_Submission_*/
 *_Fanar_Abtal_Storybook.pdf
 
 # Local test/helper scripts not needed for deployment

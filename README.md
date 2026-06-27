@@ -13,7 +13,10 @@ Fanar Abtal is a bilingual family companion for children and parents in Qatar. I
 3. **My Story Maker — Dream Career Adventures**  
    Children choose a dream profession such as police officer, firefighter, pilot, imam, mu'adhin, Islamic scholar, teacher, engineer, or doctor. Fanar creates a safe, inspiring story with scenes and optional illustrations.
 
-4. **Activity Companion**  
+4. **Family Personalization Settings**  
+   Parent Story Studio and My Story Maker include image and voice settings. Families can guide illustration style, colours, cultural setting, age-aware design, narration feeling, and optional Fanar personalized voice names when authorized.
+
+5. **Activity Companion**  
    Parents can paste a WhatsApp caption, upload a community flyer, or use a demo flyer. Fanar turns the activity into a practical family journey:
 
    - what the activity is
@@ -22,10 +25,10 @@ Fanar Abtal is a bilingual family companion for children and parents in Qatar. I
    - what to confirm with the organiser
    - what to do before, during, and after the activity
 
-5. **Summer Camp Extension**  
+6. **Summer Camp Extension**  
    Helps families continue a child’s camp learning at home through simple explanations, questions, missions, and parent notes.
 
-6. **Parent Space**  
+7. **Parent Space**  
    Gives parents a simple place to review child growth, activity notes, and family conversation prompts.
 
 ## Why this matters
@@ -48,12 +51,25 @@ FANAR_TEXT_URL=https://api.fanar.qa/v1/chat/completions
 FANAR_TEXT_MODEL=Fanar
 FANAR_IMAGE_URL=https://api.fanar.qa/v1/images/generations
 FANAR_IMAGE_MODEL=Fanar-Oryx-IG-2
+FANAR_TTS_URL=https://api.fanar.qa/v1/audio/speech
+FANAR_TTS_MODEL=Fanar-Aura-TTS-2
+FANAR_TTS_VOICE_EN=Amelia
+FANAR_TTS_VOICE_AR=Hamad
 ```
 
 Optional, when a Fanar image-to-text model is available:
 
 ```env
 FANAR_VISION_MODEL=Fanar-Oryx-IVU-2
+```
+
+Optional personalized voice names, only if Fanar has authorized and created them:
+
+```env
+FANAR_TTS_VOICE_FATHER=
+FANAR_TTS_VOICE_MOTHER=
+FANAR_TTS_VOICE_GRANDPARENT=
+FANAR_TTS_VOICE_FAVORITE=
 ```
 
 Start the app:

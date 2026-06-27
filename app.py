@@ -1144,10 +1144,10 @@ elif page == "Parent Story Studio":
             "Use gentle Arabic/Islamic adab concepts, but do not quote Quran or hadith unless the exact text is supplied by the parent."
         )
         with st.spinner("Fanar is creating a storybook for your family..."):
-            result = ask_fanar(PARENT_STORYBOOK_PROMPT, context)
+            result, storybook_error = ask_fanar_with_error(PARENT_STORYBOOK_PROMPT, context)
         if not result:
             result = story_demo(name, seed, language)
-            st.caption("Demo story shown. Add your Fanar API key to generate a fully structured live storybook.")
+            st.caption(f"Demo story shown because Fanar storybook generation was unavailable: {storybook_error}")
         st.markdown("## 📖 Your Fanar Storybook")
         if read_parent_story:
             with st.spinner("Fanar Voice is preparing the read-aloud story..."):

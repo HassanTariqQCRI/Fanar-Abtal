@@ -183,6 +183,31 @@ def ask_fanar(system_prompt, context):
     return None
 
 
+def ask_fanar_with_error(system_prompt, context):
+    """Call Fanar and return a readable failure reason for reviewer-safe diagnostics."""
+    if not API_KEY:
+        return None, "No Fanar API key is configured in Streamlit Secrets or the local environment."
+    try:
+        response = requests.post(
+            TEXT_URL,
+            headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+            json={"model": TEXT_MODEL, "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context},
+            ]},
+            timeout=90,
+        )
+        if response.status_code != 200:
+            details = response.text[:240].replace("\n", " ")
+            return None, f"Fanar text model {TEXT_MODEL} returned HTTP {response.status_code}: {details}"
+        content = response.json()["choices"][0]["message"]["content"]
+        return content, None
+    except requests.Timeout:
+        return None, f"Fanar text model {TEXT_MODEL} timed out while creating the journey."
+    except (requests.RequestException, ValueError, KeyError, TypeError) as error:
+        return None, f"Fanar text model {TEXT_MODEL} could not create the journey: {error}"
+
+
 def ask_fanar_to_read_flyer(uploaded_file):
     """Read a flyer with Fanar's image-to-text model before any local OCR fallback."""
     if not VISION_MODEL:
@@ -1417,14 +1442,14 @@ Source note: If this came from an uploaded flyer, the text was read first using 
 {activity_text}
 ---"""
             with st.spinner("Fanar is reading the activity and shaping a family journey..."):
-                response = ask_fanar(ACTIVITY_COMPANION_PROMPT, context)
+                response, journey_error = ask_fanar_with_error(ACTIVITY_COMPANION_PROMPT, context)
             if not response:
                 if source_type == "Try demo flyer":
                     response = activity_demo(name, age, family_language, activity_interests, activity_goal)
                     st.caption("Demo journey shown from the built-in demo flyer.")
                 else:
                     response = activity_fallback_from_text(name, age, family_language, activity_interests, activity_goal, activity_text)
-                    st.caption("Fanar journey generation was unavailable, so the app built a conservative journey from the extracted flyer text without inventing missing details.")
+                    st.caption(f"Fanar journey generation was unavailable ({journey_error}), so the app built a conservative journey from the extracted flyer text without inventing missing details.")
             activity_card = activity_section(response, "ACTIVITY CARD")
             activity_name_match = re.search(r"\*\*(.+?)\*\*", activity_card)
             activity_name = activity_name_match.group(1) if activity_name_match else "Family activity journey"

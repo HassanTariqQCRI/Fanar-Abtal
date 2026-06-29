@@ -31,6 +31,9 @@ TRANSCRIPTION_URL = app_config("FANAR_TRANSCRIPTION_URL", "https://api.fanar.qa/
 TRANSCRIPTION_MODEL = app_config("FANAR_TRANSCRIPTION_MODEL", "Fanar-Aura-STT-1")
 IMAGE_URL = app_config("FANAR_IMAGE_URL", "https://api.fanar.qa/v1/images/generations")
 IMAGE_MODEL = app_config("FANAR_IMAGE_MODEL", "Fanar-Oryx-IG-2")
+OPENAI_API_KEY = app_config("OPENAI_API_KEY")
+OPENAI_IMAGE_URL = app_config("OPENAI_IMAGE_URL", "https://api.openai.com/v1/images/generations")
+OPENAI_IMAGE_MODEL = app_config("OPENAI_IMAGE_MODEL", "gpt-image-1")
 TTS_URL = app_config("FANAR_TTS_URL", app_config("FANAR_VOICE_URL", "https://api.fanar.qa/v1/audio/speech"))
 TTS_MODEL = app_config("FANAR_TTS_MODEL", app_config("FANAR_VOICE_MODEL", "Fanar-Aura-TTS-2"))
 TTS_VOICE_EN = app_config("FANAR_TTS_VOICE_EN", "Amelia")
@@ -501,10 +504,48 @@ def render_story_audio(audio_path, language_choice):
     )
 
 
+def save_image_payload(item, path):
+    if item.get("b64_json"):
+        with open(path, "wb") as image_file:
+            image_file.write(base64.b64decode(item["b64_json"]))
+        return True
+    if item.get("url"):
+        image_response = requests.get(item["url"], timeout=60)
+        image_response.raise_for_status()
+        with open(path, "wb") as image_file:
+            image_file.write(image_response.content)
+        return True
+    return False
+
+
+def create_gpt_scene_image(visual_prompt, scene_number, child_name):
+    """Generate a scene image with OpenAI/GPT as a secondary fallback after Fanar."""
+    if not OPENAI_API_KEY:
+        return None, "OPENAI_API_KEY is not configured for GPT image fallback."
+    try:
+        response = requests.post(
+            OPENAI_IMAGE_URL,
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+            json={"model": OPENAI_IMAGE_MODEL, "prompt": visual_prompt, "size": "1024x1024"},
+            timeout=180,
+        )
+        if response.status_code != 200:
+            details = response.text[:220].replace("\n", " ")
+            return None, f"GPT image service returned HTTP {response.status_code}: {details}"
+        item = response.json().get("data", [None])[0]
+        if not item:
+            return None, "GPT image service did not return an image."
+        safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", child_name or "child").strip("_") or "child"
+        path = os.path.join("generated_images", f"{safe_name}_{uuid.uuid4().hex[:8]}_gpt_scene_{scene_number}.png")
+        if not save_image_payload(item, path):
+            return None, "GPT returned an image response without usable image data."
+        return path, None
+    except (requests.RequestException, ValueError, OSError) as error:
+        return None, f"GPT image fallback failed: {error}"
+
+
 def create_scene_image(prompt, scene_number, child_name, age, country, image_preferences=None):
-    """Create one consistent, child-safe illustration for a story scene."""
-    if not API_KEY:
-        return None, "FANAR_API_KEY is not configured."
+    """Create one consistent, child-safe illustration, trying Fanar first and GPT second."""
     visual_prompt = f"""Use case: illustration-story.
 Asset type: children's storybook scene.
 Primary request: {prompt}
@@ -514,34 +555,37 @@ Style/medium: polished, colourful hand-painted children's book illustration with
 Composition/framing: clear action, one scene only, generous visual storytelling.
 Lighting/mood: warm, hopeful, safe, and joyful.
 Constraints: no written words, letters, logos, watermarks, scary content, or copyrighted characters."""
-    try:
-        response = requests.post(
-            IMAGE_URL,
-            headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
-            json={"model": IMAGE_MODEL, "prompt": visual_prompt}, timeout=180,
-        )
-        if response.status_code != 200:
-            details = response.text[:220].replace("\n", " ")
-            return None, f"Fanar image service returned HTTP {response.status_code}: {details}"
-        item = response.json().get("data", [None])[0]
-        if not item:
-            return None, "Fanar did not return an image."
-        path = os.path.join("generated_images", f"{child_name}_{uuid.uuid4().hex[:8]}_scene_{scene_number}.png")
-        if item.get("b64_json"):
-            with open(path, "wb") as image_file:
-                image_file.write(base64.b64decode(item["b64_json"]))
-        elif item.get("url"):
-            image_response = requests.get(item["url"], timeout=60)
-            image_response.raise_for_status()
-            with open(path, "wb") as image_file:
-                image_file.write(image_response.content)
-        else:
-            return None, "Fanar returned an image without usable image data."
-        return path, None
-    except requests.RequestException as error:
-        return None, f"Fanar image request failed: {error}"
-    except (ValueError, OSError) as error:
-        return None, f"Fanar image data could not be saved: {error}"
+    fanar_error = None
+    if not API_KEY:
+        fanar_error = "FANAR_API_KEY is not configured."
+    else:
+        try:
+            response = requests.post(
+                IMAGE_URL,
+                headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+                json={"model": IMAGE_MODEL, "prompt": visual_prompt}, timeout=180,
+            )
+            if response.status_code != 200:
+                details = response.text[:220].replace("\n", " ")
+                fanar_error = f"Fanar image service returned HTTP {response.status_code}: {details}"
+            else:
+                item = response.json().get("data", [None])[0]
+                if not item:
+                    fanar_error = "Fanar did not return an image."
+                else:
+                    path = os.path.join("generated_images", f"{child_name}_{uuid.uuid4().hex[:8]}_scene_{scene_number}.png")
+                    if save_image_payload(item, path):
+                        return path, None
+                    fanar_error = "Fanar returned an image without usable image data."
+        except requests.RequestException as error:
+            fanar_error = f"Fanar image request failed: {error}"
+        except (ValueError, OSError) as error:
+            fanar_error = f"Fanar image data could not be saved: {error}"
+
+    gpt_path, gpt_error = create_gpt_scene_image(visual_prompt, scene_number, child_name)
+    if gpt_path:
+        return gpt_path, f"Fanar image generation failed, so GPT image fallback was used. Fanar error: {fanar_error}"
+    return None, f"{fanar_error} GPT fallback: {gpt_error}"
 
 
 def parse_story_scenes(story):
@@ -1307,7 +1351,7 @@ elif page == "Parent Story Studio":
                 if image_path:
                     st.image(image_path, caption=f"Fanar illustration — Scene {scene['number']}", use_container_width=True)
                     if image_error:
-                        st.caption(f"Placeholder shown because live Fanar image generation failed: {image_error}")
+                        st.caption(f"Image fallback note: {image_error}")
                 else:
                     st.warning(f"Scene {scene['number']} illustration is not available yet: {image_error}")
                     with st.expander(f"Scene {scene['number']} illustration prompt"):
@@ -1435,7 +1479,7 @@ Create an original four-scene illustrated storybook using exactly the requested 
                 if image_path:
                     st.image(image_path, caption=f"Scene {scene['number']} - {career.split(' | ')[0]}", use_container_width=True)
                     if image_error:
-                        st.caption(f"Placeholder shown because live Fanar image generation failed: {image_error}")
+                        st.caption(f"Image fallback note: {image_error}")
                 elif image_error:
                     st.info(f"Illustration prompt ready for Scene {scene['number']}: {scene['prompt']}")
                 st.markdown(f"<div class='scene-copy'><div class='scene-label'>Scene {scene['number']}</div><p>{scene['text']}</p></div>", unsafe_allow_html=True)
@@ -1508,7 +1552,7 @@ Create an original four-scene illustrated storybook using exactly the requested 
                 if image_path:
                     st.image(image_path, caption=f"Scene {scene['number']} — {career.split(' | ')[0]}", use_container_width=True)
                     if image_error:
-                        st.caption(f"Placeholder shown because live Fanar image generation failed: {image_error}")
+                        st.caption(f"Image fallback note: {image_error}")
                 elif image_error:
                     st.info(f"Illustration prompt ready for Scene {scene['number']}: {scene['prompt']}")
                 st.markdown(f"<div class='scene-copy'><div class='scene-label'>Scene {scene['number']}</div><p>{scene['text']}</p></div>", unsafe_allow_html=True)

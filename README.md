@@ -51,6 +51,9 @@ FANAR_TEXT_URL=https://api.fanar.qa/v1/chat/completions
 FANAR_TEXT_MODEL=Fanar
 FANAR_IMAGE_URL=https://api.fanar.qa/v1/images/generations
 FANAR_IMAGE_MODEL=Fanar-Oryx-IG-2
+OPENAI_API_KEY=
+OPENAI_IMAGE_URL=https://api.openai.com/v1/images/generations
+OPENAI_IMAGE_MODEL=gpt-image-1
 FANAR_TTS_URL=https://api.fanar.qa/v1/audio/speech
 FANAR_TTS_MODEL=Fanar-Aura-TTS-2
 FANAR_TTS_VOICE_EN=Amelia
@@ -89,6 +92,10 @@ http://localhost:8501
 The Activity Companion uses Fanar image-to-text (`Fanar-Oryx-IVU-2`) first to read uploaded flyer images. Local OCR is only a backup if Fanar image reading is unavailable. For the backup to work, install the Tesseract OCR desktop application with English and Arabic language data.
 
 If OCR or Fanar image reading is not available, the app still works: parents can paste the WhatsApp caption or visible flyer text.
+
+## Image generation fallback
+
+Story illustrations use Fanar image generation first (`Fanar-Oryx-IG-2`). If Fanar image generation is unavailable, the app can use GPT image generation when `OPENAI_API_KEY` is configured. Bundled sample illustrations remain the final fallback.
 
 ## Deploy for sharing
 

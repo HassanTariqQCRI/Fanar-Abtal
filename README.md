@@ -5,7 +5,7 @@ Fanar Abtal is a bilingual family companion for children and parents in Qatar. I
 ## Main features
 
 1. **Road to Abtal**  
-   Introduces the overall vision: every child can imagine, create, reflect, and grow.
+   Opens with an interactive child-friendly dashboard. Families can choose playful themes such as Space Mission, Ocean Quest, Garden Makers, or Qatar Majlis while parents still see safety, age-fit, and family-value guidance.
 
 2. **Parent Story Studio**  
    Parents can turn a real family moment into a personalised child story.

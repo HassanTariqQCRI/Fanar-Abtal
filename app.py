@@ -1176,7 +1176,7 @@ for key, value in {
     "learner_name": "Aisha", "learner_age": 10, "language": "English",
     "camp": "AI & Data Skills", "interests": "Robots, football, drawing",
     "confidence": "A little nervous", "goal": "Understand how AI learns",
-    "completed": 2, "streak": 3,
+    "completed": 2, "streak": 3, "dashboard_theme": "Space Mission",
     "parent_country": "Qatar", "learner_gender": "Prefer not to specify",
     "parent_values": ["Kindness and mercy | الرحمة واللطف"],
     "parent_theme": "Kindness and mercy | الرحمة واللطف", "parent_notes": "My child likes football, animals, and colourful stories.",
@@ -1197,6 +1197,16 @@ st.markdown("""
 .app-shell{background:white;border:1px solid #e7ebf3;border-radius:14px;padding:14px 18px;margin-bottom:18px;box-shadow:0 4px 14px rgba(35,43,72,.06)}
 .app-shell h3{margin:0 0 4px 0;font-size:20px}.app-shell p{margin:0;color:#667085}
 .page-guide{background:#f8fbff;border:1px solid #dbeafe;border-left:5px solid #4d8bd6;border-radius:12px;padding:14px 16px;margin:12px 0 18px 0;color:#24324b}
+.kid-dashboard{border-radius:30px;padding:30px;color:#172033;box-shadow:0 16px 34px rgba(30,42,80,.12);border:1px solid rgba(255,255,255,.7);margin-bottom:18px}
+.kid-dashboard h1{font-size:44px;margin:0 0 8px 0}.kid-dashboard p{font-size:18px;margin:0 0 16px 0;max-width:760px}
+.dashboard-meta{display:flex;gap:10px;flex-wrap:wrap}.dashboard-pill{background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.7);border-radius:999px;padding:8px 13px;font-weight:800;color:#1e2a44}
+.quest-card{background:white;border-radius:20px;padding:20px;box-shadow:0 6px 18px rgba(46,52,80,.08);height:100%;border-top:6px solid #ffb84d}
+.quest-card h3{margin-top:0}.quest-card p{color:#4b5875}
+.parent-dashboard{background:#f7fbff;border:1px solid #dbeafe;border-radius:20px;padding:22px;height:100%;box-shadow:0 6px 18px rgba(46,52,80,.06)}
+.path-card{background:white;border-radius:18px;padding:18px;min-height:180px;box-shadow:0 6px 18px rgba(46,52,80,.07);border:1px solid #edf1f7}
+.path-card h3{margin-top:0;font-size:23px}.path-card p{color:#4b5875}
+.badge-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.badge{display:inline-block;border-radius:999px;padding:7px 11px;font-weight:800;background:#eaf8f1;color:#0d5a43}
+.mini-progress{height:12px;background:#edf2f7;border-radius:999px;overflow:hidden;margin:10px 0 6px}.progress-fill{height:12px;background:linear-gradient(90deg,#35b87f,#ffbe55);border-radius:999px}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1210,6 +1220,37 @@ PAGE_GUIDES = {
     "Parent space": "For parents: review saved journeys, growth notes, and follow-up prompts in one place.",
 }
 
+DASHBOARD_THEMES = {
+    "Space Mission": {
+        "bg": "linear-gradient(135deg,#eaf6ff 0%,#fff7d6 48%,#f2edff 100%)",
+        "accent": "#6d3de7",
+        "title": "Space Mission",
+        "line": "Launch today's story, activity, or learning quest with courage.",
+        "quest": "Collect one new idea and turn it into a family story.",
+    },
+    "Ocean Quest": {
+        "bg": "linear-gradient(135deg,#dff8ff 0%,#eafaf0 52%,#fff3d8 100%)",
+        "accent": "#138a90",
+        "title": "Ocean Quest",
+        "line": "Dive into calm, curious learning with parent support nearby.",
+        "quest": "Find one thing you are curious about and ask Fanar to explain it.",
+    },
+    "Garden Makers": {
+        "bg": "linear-gradient(135deg,#effbe7 0%,#fff7dc 50%,#ffe9ef 100%)",
+        "accent": "#2f8f5b",
+        "title": "Garden Makers",
+        "line": "Grow confidence through tiny acts, stories, and reflection.",
+        "quest": "Choose one kind action and make it the seed of a story.",
+    },
+    "Qatar Majlis": {
+        "bg": "linear-gradient(135deg,#fff4e6 0%,#f0fbff 46%,#eaf7ef 100%)",
+        "accent": "#9a3151",
+        "title": "Qatar Majlis",
+        "line": "Bring family conversation, culture, and imagination together.",
+        "quest": "Ask a family member for a memory and turn it into a story.",
+    },
+}
+
 page = st.session_state.get("main_page", PAGES[0])
 
 with st.sidebar:
@@ -1220,6 +1261,7 @@ with st.sidebar:
     st.text_input("Child’s name", key="learner_name")
     st.number_input("Age", min_value=4, max_value=16, key="learner_age")
     st.selectbox("Preferred language", ["English", "Arabic", "Both"], key="language")
+    st.selectbox("Dashboard theme", list(DASHBOARD_THEMES.keys()), key="dashboard_theme")
     if page == "Parent Story Studio":
         st.divider()
         st.markdown("### Parent story details")
@@ -1256,13 +1298,82 @@ with st.sidebar:
 
 name, age, language = st.session_state.learner_name, st.session_state.learner_age, st.session_state.language
 st.markdown(
-    "<div class='app-shell'><h3>Fanar Abtal</h3><p>Choose a section from the top navigation. The child profile stays available on the left for every workflow.</p></div>",
+    "<div class='app-shell'><h3>Fanar Abtal Dashboard</h3><p>Choose a child journey from the top navigation. The profile and theme stay available on the left for every workflow.</p></div>",
     unsafe_allow_html=True,
 )
 page = st.radio("Main navigation", PAGES, horizontal=True, label_visibility="collapsed", key="main_page")
 st.markdown(f"<div class='page-guide'>{PAGE_GUIDES[page]}</div>", unsafe_allow_html=True)
 
 if page == "Road to Abtal":
+    theme = DASHBOARD_THEMES.get(st.session_state.dashboard_theme, DASHBOARD_THEMES["Space Mission"])
+    st.markdown(
+        f"""<div class="kid-dashboard" style="background:{theme['bg']};">
+        <p style="font-weight:900;color:{theme['accent']};margin-bottom:6px;">{theme['title']}</p>
+        <h1>Welcome back, {name}</h1>
+        <p>{theme['line']} Fanar keeps the experience playful for children and clear for parents.</p>
+        <div class="dashboard-meta">
+            <span class="dashboard-pill">Age {age}</span>
+            <span class="dashboard-pill">{language}</span>
+            <span class="dashboard-pill">{st.session_state.completed} journeys done</span>
+            <span class="dashboard-pill">{st.session_state.streak}-day streak</span>
+        </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    quest_col, parent_col = st.columns([1.25, 1])
+    with quest_col:
+        progress_width = min(100, max(15, st.session_state.completed * 25))
+        st.markdown(
+            f"""<div class='quest-card'>
+            <h3>Today's Abtal Quest</h3>
+            <p>{theme['quest']}</p>
+            <div class='mini-progress'><div class='progress-fill' style='width:{progress_width}%'></div></div>
+            <p class='tiny'>Progress grows when children create, listen, reflect, and share.</p>
+            <div class='badge-row'><span class='badge'>Imagine</span><span class='badge'>Create</span><span class='badge'>Reflect</span></div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    with parent_col:
+        st.markdown(
+            """<div class='parent-dashboard'>
+            <h3>Parent Trust View</h3>
+            <p><b>Safe by design:</b> parent profile, age guidance, and family values shape the output.</p>
+            <p><b>Powered by Fanar:</b> story, flyer understanding, voice, and culturally aware guidance.</p>
+            <p><b>Not passive screen time:</b> each path ends with a family prompt, activity, or creation.</p>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("## Choose a journey")
+    path_1, path_2, path_3, path_4 = st.columns(4)
+    with path_1:
+        st.markdown("<div class='path-card'><h3>Parent Story Studio</h3><p>Create warm stories from real family moments, values, and child interests.</p></div>", unsafe_allow_html=True)
+        if st.button("Create story", use_container_width=True):
+            st.session_state["main_page"] = "Parent Story Studio"
+            st.rerun()
+    with path_2:
+        st.markdown("<div class='path-card'><h3>My Story Maker</h3><p>Let children choose a hero, future role, setting, mood, and image style.</p></div>", unsafe_allow_html=True)
+        if st.button("Make story", use_container_width=True):
+            st.session_state["main_page"] = "My Story Maker"
+            st.rerun()
+    with path_3:
+        st.markdown("<div class='path-card'><h3>Activity Companion</h3><p>Turn flyers and WhatsApp activity details into family-ready guidance.</p></div>", unsafe_allow_html=True)
+        if st.button("Read activity", use_container_width=True):
+            st.session_state["main_page"] = "Activity Companion"
+            st.rerun()
+    with path_4:
+        st.markdown("<div class='path-card'><h3>Parent Space</h3><p>Review growth notes, saved journeys, and gentle follow-up questions.</p></div>", unsafe_allow_html=True)
+        if st.button("Parent review", use_container_width=True):
+            st.session_state["main_page"] = "Parent space"
+            st.rerun()
+
+    st.markdown("## Growing pathways")
+    pathway_1, pathway_2, pathway_3, pathway_4 = st.columns(4)
+    pathway_1.info("**Imagine**\nStories that help children feel seen.")
+    pathway_2.success("**Create**\nChildren shape ideas into something they can share.")
+    pathway_3.warning("**Discover**\nCommunity activities become family journeys.")
+    pathway_4.info("**Explore**\nCamp learning continues at home.")
+    st.stop()
     st.markdown(f"""<div class="hero"><h1>Fanar Abtal</h1><div class="arabic">فنار أبطال</div><p><b>Road to Abtal</b> — helping children grow through imagination, curiosity, character, and creation.</p><span class="tag">Stories</span><span class="tag">Child creation</span><span class="tag">Learning journeys</span></div>""", unsafe_allow_html=True)
     st.write("")
     st.markdown("## Two doors into every child’s journey")

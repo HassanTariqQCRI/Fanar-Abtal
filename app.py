@@ -1194,13 +1194,27 @@ st.markdown("""
 .mission{background:#fffaf0;border-left:6px solid #f5a524;padding:18px;border-radius:16px;margin:12px 0}.parent{background:#f2f7ff;border-radius:16px;padding:20px}.tiny{color:#667085;font-size:.9em}
 .activity-hero{background:linear-gradient(115deg,#18395b,#276a67);padding:32px;border-radius:30px;color:white;box-shadow:0 13px 30px rgba(24,57,91,.20)}.activity-hero h1{margin:0;font-size:38px}.activity-step{background:white;border-radius:20px;padding:20px;min-height:220px;box-shadow:0 5px 16px rgba(46,52,80,.08);border-top:5px solid #71c8b8}.activity-step h3{margin-top:0;color:#235b5b}.match{display:inline-block;background:#d9fbef;color:#125346;padding:8px 14px;border-radius:99px;font-weight:800}.source-card{background:#fff8e9;border-radius:18px;padding:18px;border:1px solid #f2dfb0}
 .scene-copy{background:white;border-radius:0 0 18px 18px;padding:18px 20px;box-shadow:0 5px 16px rgba(46,52,80,.08);margin-top:-12px;margin-bottom:24px}.scene-label{color:#6d3de7;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.app-shell{background:white;border:1px solid #e7ebf3;border-radius:14px;padding:14px 18px;margin-bottom:18px;box-shadow:0 4px 14px rgba(35,43,72,.06)}
+.app-shell h3{margin:0 0 4px 0;font-size:20px}.app-shell p{margin:0;color:#667085}
+.page-guide{background:#f8fbff;border:1px solid #dbeafe;border-left:5px solid #4d8bd6;border-radius:12px;padding:14px 16px;margin:12px 0 18px 0;color:#24324b}
 </style>
 """, unsafe_allow_html=True)
+
+PAGES = ["Road to Abtal", "Parent Story Studio", "My Story Maker", "Activity Companion", "Summer Camp Extension", "Parent space"]
+PAGE_GUIDES = {
+    "Road to Abtal": "Start here for the full product vision: stories, child creation, community activities, camp learning, and parent reflection.",
+    "Parent Story Studio": "For parents: choose a value, setting, image style, and voice preference, then create a family storybook with scenes and guidance.",
+    "My Story Maker": "For children: choose a future role, interest, setting, and strength, then Fanar builds an age-aware adventure.",
+    "Activity Companion": "For families: paste or upload an activity flyer so Fanar can explain fit, missing details, and before/during/after guidance.",
+    "Summer Camp Extension": "For after camp: turn a child reflection into simple explanations, missions, and parent conversation prompts.",
+    "Parent space": "For parents: review saved journeys, growth notes, and follow-up prompts in one place.",
+}
+
+page = st.session_state.get("main_page", PAGES[0])
 
 with st.sidebar:
     st.markdown("# 🌟 Fanar Abtal")
     st.caption("Every small step is part of the Road to Abtal.")
-    page = st.radio("Explore", ["Road to Abtal", "Parent Story Studio", "My Story Maker", "Activity Companion", "Summer Camp Extension", "Parent space"])
     st.divider()
     st.markdown("### Child profile")
     st.text_input("Child’s name", key="learner_name")
@@ -1241,6 +1255,12 @@ with st.sidebar:
         )
 
 name, age, language = st.session_state.learner_name, st.session_state.learner_age, st.session_state.language
+st.markdown(
+    "<div class='app-shell'><h3>Fanar Abtal</h3><p>Choose a section from the top navigation. The child profile stays available on the left for every workflow.</p></div>",
+    unsafe_allow_html=True,
+)
+page = st.radio("Main navigation", PAGES, horizontal=True, label_visibility="collapsed", key="main_page")
+st.markdown(f"<div class='page-guide'>{PAGE_GUIDES[page]}</div>", unsafe_allow_html=True)
 
 if page == "Road to Abtal":
     st.markdown(f"""<div class="hero"><h1>Fanar Abtal</h1><div class="arabic">فنار أبطال</div><p><b>Road to Abtal</b> — helping children grow through imagination, curiosity, character, and creation.</p><span class="tag">Stories</span><span class="tag">Child creation</span><span class="tag">Learning journeys</span></div>""", unsafe_allow_html=True)
@@ -1250,11 +1270,13 @@ if page == "Road to Abtal":
     with first:
         st.markdown("""<div class='card'><h2>👨‍👩‍👧 Parent Story Studio</h2><p>Parents create a meaningful, personalised story around their child’s interests, emotions, values, or a moment from their day.</p><p class='tiny'>A gentle way to begin conversations and build connection.</p></div>""", unsafe_allow_html=True)
         if st.button("Create a parent-guided story", use_container_width=True):
-            st.session_state["go_to"] = "Parent Story Studio"
+            st.session_state["main_page"] = "Parent Story Studio"
+            st.rerun()
     with second:
         st.markdown("""<div class='card'><h2>🎨 My Story Maker</h2><p>Children become creators: they choose a hero, setting, feeling, and twist—then Fanar brings their own idea to life.</p><p class='tiny'>Not passive screen time: imagination, voice, and ownership.</p></div>""", unsafe_allow_html=True)
         if st.button("Make my own story", use_container_width=True):
-            st.session_state["go_to"] = "My Story Maker"
+            st.session_state["main_page"] = "My Story Maker"
+            st.rerun()
     st.markdown("## One vision, growing pathways")
     pathway_1, pathway_2, pathway_3, pathway_4 = st.columns(4)
     pathway_1.info("**Imagine**\nStories that help children feel seen.")
@@ -1262,7 +1284,7 @@ if page == "Road to Abtal":
     pathway_3.warning("**Discover**\nCommunity activities become family journeys.")
     pathway_4.info("**Explore**\nCamp learning continues at home.")
     if st.session_state.get("go_to"):
-        st.info(f"Choose **{st.session_state['go_to']}** from the left menu to continue.")
+        st.info(f"Choose **{st.session_state['go_to']}** from the top navigation to continue.")
 
 elif page == "Parent Story Studio":
     tarbiyah_profile = parent_tarbiyah_profile(age)
